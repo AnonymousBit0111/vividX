@@ -1,0 +1,93 @@
+
+from glob import glob
+import os
+import scons_compiledb
+
+
+inc = []
+libPaths = []
+libs = []
+src = []
+defines = []
+srcpathfile = open("srcDirPaths.txt")
+incpathfile = open("includePaths.txt")
+libPathfile = open("libPaths.txt")
+libfile = open("libs.txt")
+defineFile = open("defines.txt")
+
+while True:
+     nstr = incpathfile.readline()
+     if len(nstr) == 0:
+         break
+     nstr = nstr.replace('\n','')
+
+
+     inc.append(nstr)
+
+
+
+while True:
+     nstr = libPathfile.readline()
+     if len(nstr) == 0:
+         break
+     nstr = nstr.replace('\n','')
+
+     libPaths.append(nstr)
+
+
+
+
+while True:
+    nstr = libfile.readline()
+    if len(nstr) == 0:
+         break
+    nstr = nstr.replace('\n','')
+    libs.append(nstr)
+
+
+
+
+while True:
+    nstr = defineFile.readline()
+    if len(nstr) == 0:
+         break
+    nstr = nstr.replace('\n','')
+
+
+    defines.append(nstr)
+while True:
+    nstr = srcpathfile.readline()
+    if len(nstr) == 0:
+         break
+    nstr = nstr.replace('\n','')
+
+    src.append(glob(nstr))
+
+
+
+
+
+print(f"LIBS :{libs}\nINCLUDE PATHS:{inc}\n:SRCFILES:{src}\nDEFINES:{defines}\nLIBPATHS{libPaths}\n")
+
+
+
+
+
+env= Environment(
+    CPPFLAGS = ["-g","-c","-std=c++20"],
+
+    CPPDEFINES = defines,
+    CXX ='clang++',
+    CPPPATH=inc,
+    LIBS=libs,
+    FRAMEWORKS = ["Cocoa","OpenGL","IOkit","Metal","Quartz"], 
+
+    
+    LIBPATH = libPaths,
+    SCONS_CXX_STANDARD='c++20')
+
+
+scons_compiledb.enable(env)
+env.Program("bin/Harmonious-Paradox",src)
+env.CompileDb()
+

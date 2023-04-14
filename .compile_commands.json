@@ -1,0 +1,7 @@
+{
+  "src/main.cpp:": {
+    "command": "clang++ -o src/main.o -c -g -c -std=c++20 src/main.cpp",
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/main.cpp"
+  }
+}
