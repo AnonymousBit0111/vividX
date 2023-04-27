@@ -1,0 +1,22 @@
+[
+  {
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "lib/vkbootstrap/src/VkBootstrap.cpp",
+    "command": "clang++ -o lib/vkbootstrap/src/VkBootstrap.o -c -g -c -std=c++20 -DDEBUG -Iinclude -Ilib/vkbootstrap/src lib/vkbootstrap/src/VkBootstrap.cpp"
+  },
+  {
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/Application.cpp",
+    "command": "clang++ -o src/Application.o -c -g -c -std=c++20 -DDEBUG -Iinclude -Ilib/vkbootstrap/src src/Application.cpp"
+  },
+  {
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/main.cpp",
+    "command": "clang++ -o src/main.o -c -g -c -std=c++20 -DDEBUG -Iinclude -Ilib/vkbootstrap/src src/main.cpp"
+  },
+  {
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/vividx.cpp",
+    "command": "clang++ -o src/vividx.o -c -g -c -std=c++20 -DDEBUG -Iinclude -Ilib/vkbootstrap/src src/vividx.cpp"
+  }
+]
