@@ -74,7 +74,7 @@ print(f"LIBS :{libs}\nINCLUDE PATHS:{inc}\n:SRCFILES:{src}\nDEFINES:{defines}\nL
 
 
 env= Environment(
-    CPPFLAGS = ["-g","-c","-std=c++20"],
+    CPPFLAGS = ["-g","-c","-std=c++20","-fsanitize=address,undefined,alignment,bounds,pointer-overflow","-fno-omit-frame-pointer"],
 
     CPPDEFINES = defines,
     CXX ='clang++',
@@ -82,7 +82,7 @@ env= Environment(
     LIBS=libs,
     FRAMEWORKS = ["Cocoa","OpenGL","IOkit","Metal","Quartz"], 
 
-    
+    LINKFLAGS = ["-fsanitize=address,undefined,alignment,bounds,pointer-overflow"],
     LIBPATH = libPaths,
     SCONS_CXX_STANDARD='c++20')
 

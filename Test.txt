@@ -1,0 +1,21 @@
+Launching Vulkan Application:
+- Layers overridden by "API dump" configuration.
+- Application: Test
+- Executable: ~/engineDev/bin/Harmonious-Paradox
+- Working Directory: /Users/ilya/engineDev/vividX
+- Log file: /Users/ilya/engineDev/vividX/Test.txt
+Failed to launch ~/engineDev/bin/Harmonious-Paradox!
+Launching Vulkan Application:
+- Layers overridden by "API dump" configuration.
+- Application: Test
+- Executable: ~/engineDev/bin/Harmonious-Paradox
+- Working Directory: /Users/ilya/engineDev/vividX
+- Log file: /Users/ilya/engineDev/vividX/Test.txt
+Failed to launch ~/engineDev/bin/Harmonious-Paradox!
+Launching Vulkan Application:
+- Layers overridden by "API dump" configuration.
+- Application: Test
+- Executable: ~/engineDev/bin/Harmonious-Paradox
+- Working Directory: /Users/ilya/engineDev/vividX
+- Log file: /Users/ilya/engineDev/vividX/Test.txt
+Failed to launch ~/engineDev/bin/Harmonious-Paradox!

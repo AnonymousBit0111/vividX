@@ -1,4 +1,5 @@
 #include "VividX/Application.h"
+#include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
 #include "VkBootstrap.h"
 #include "vividx.h"
@@ -10,16 +11,27 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <_types/_uint32_t.h>
+#include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <vector>
+
+#include <vulkan/vulkan_macos.h>
 const int WIDTH = 800;
 const int HEIGHT = 600;
 
 using namespace vividX;
-
+// TODO change sephamore to semaphore
 void Application::run() {
+
+  vertices = vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+                         {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+                         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
   initSDL();
   initVulkan();
   mainLoop();
@@ -42,6 +54,7 @@ void Application::initSDL() {
 
 void Application::initVulkan() {
   createInstance();
+
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
@@ -49,12 +62,15 @@ void Application::initVulkan() {
   presentMode = choosePresentMode();
   swapChainExtent = chooseExtent();
   createSwapChain();
+  createVertexBuffer();
+  createCommandPool();
+  createCommandBuffer();
 
   createRenderPass();
   createGraphicsPipeline();
   createFramebuffers();
-  createCommandPool();
-  createCommandBuffer();
+
+  createSyncObjects();
 }
 
 void Application::createInstance() {
@@ -63,10 +79,30 @@ void Application::createInstance() {
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.pEngineName = "No Engine";
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.apiVersion = VK_API_VERSION_1_0;
+  appInfo.apiVersion = VK_API_VERSION_1_2;
 
   vk::InstanceCreateInfo createInfo{};
   createInfo.pApplicationInfo = &appInfo;
+
+  std::vector<vk::LayerProperties> availableLayers =
+      vk::enumerateInstanceLayerProperties();
+
+  std::vector<std::string> requestedLayers = {"VK_LAYER_KHRONOS_validation"};
+  std::vector<const char *> receivedLayers;
+
+  for (auto &i : requestedLayers) {
+    for (auto &layer : availableLayers) {
+      if (std::string(layer.layerName) == std::string(i)) {
+        log("validation layer " + i + " is enabled and supported",
+            Severity::INFO);
+        receivedLayers.push_back(layer.layerName);
+      }
+    }
+  }
+
+  createInfo.enabledLayerCount = receivedLayers.size();
+  createInfo.ppEnabledLayerNames = receivedLayers.data();
+  validationLayers = receivedLayers;
 
   uint32_t extensionCount = 0;
   if (!SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, nullptr) ||
@@ -81,14 +117,53 @@ void Application::createInstance() {
                                         extensions.data())) {
     assert(false && "Failed to get Vulkan instance extensions.");
   }
-  for (auto &i : extensions) {
-    log(i, Severity::INFO);
+
+  createInfo.flags |= vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+
+  // extensions.push_back("VK_EXT_metal_surface");
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+  extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  for (auto &reqExt : extensions) {
+
+    for (auto &i : vk::enumerateInstanceExtensionProperties()) {
+      if (i.extensionName == std::string(reqExt)) {
+        log("instance extension: " + std::string(i.extensionName) +
+                " is supported",
+            Severity::INFO);
+      }
+    }
   }
+  createInfo.enabledExtensionCount = extensions.size();
+
   createInfo.ppEnabledExtensionNames = extensions.data();
 
-  if (vk::createInstance(&createInfo, nullptr, &instance) !=
-      vk::Result::eSuccess) {
-    assert(false && "Failed to create Vulkan instance.");
+  for (auto &i : extensions) {
+    log("enabled instance extension:" + std::string(i), Severity::INFO);
+  }
+
+  auto res = vk::createInstance(&createInfo, nullptr, &instance);
+
+  vk::resultCheck(res, "error:");
+
+  validationLayers = receivedLayers;
+
+  log("succesfully created instance", Severity::INFO);
+}
+
+void Application::createDebugCallback() {
+  VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+  createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+  createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                               VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  createInfo.pfnUserCallback = vividX::debugCallback;
+
+  if (vividX::CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr,
+                                           &debugMessenger) != VK_SUCCESS) {
+    throw std::runtime_error("failed to set up debug messenger!");
   }
 }
 
@@ -109,7 +184,10 @@ void Application::mainLoop() {
       }
     }
     drawFrame();
+
+    SDL_UpdateWindowSurface(window);
   }
+  device->waitIdle();
 }
 
 void Application::pickPhysicalDevice() {
@@ -135,49 +213,70 @@ void Application::pickPhysicalDevice() {
 }
 
 void Application::createLogicalDevice() {
-
   std::vector<vk::QueueFamilyProperties> queueFamilies =
       physicalDevice.getQueueFamilyProperties();
 
-  int i = 0;
-  for (const auto &queuefamily : queueFamilies) {
-    if (queuefamily.queueFlags & vk::QueueFlagBits::eGraphics) {
+  uint32_t i = 0;
+  for (const auto &queueFamily : queueFamilies) {
+    if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
       queueFamilyIndices["Graphics"] = i;
+    }
+    bool presentSupport;
+    presentSupport = physicalDevice.getSurfaceSupportKHR(i, surface);
+    if (presentSupport) {
+      queueFamilyIndices["Present"] = i;
     }
     i++;
   }
 
-  vk::DeviceQueueCreateInfo info{};
-  info.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
-  info.queueCount = 1;
+  assert(queueFamilyIndices.count("Graphics") > 0 &&
+         "Failed to find required graphics queue.");
+
+  vk::DeviceQueueCreateInfo queueCreateInfo{};
+  queueCreateInfo.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
+  queueCreateInfo.queueCount = 1;
   static float queuePriority = 1.0f;
-  info.pQueuePriorities = &queuePriority;
+  queueCreateInfo.pQueuePriorities = &queuePriority;
 
-  vk::PhysicalDeviceFeatures devFeatures{};
+  vk::PhysicalDeviceFeatures deviceFeatures{};
 
-  std::vector<vk::ExtensionProperties> extensions =
+  std::vector<vk::ExtensionProperties> availableExtensions =
       physicalDevice.enumerateDeviceExtensionProperties();
 
-  std::vector<const char *> extNames;
-  for (auto &i : extensions) {
-    extNames.push_back(i.extensionName);
+  std::vector<const char *> enabledExtensions = {
+      VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_KHR_portability_subset"};
+
+  for (auto &req : enabledExtensions) {
+    bool extFound = false;
+    for (auto &i : physicalDevice.enumerateDeviceExtensionProperties()) {
+
+      if (std::string(i.extensionName) == std::string(req)) {
+        log("device extension " + std::string(i.extensionName) +
+                " is enabled and supported",
+            Severity::INFO);
+        extFound = true;
+        break;
+      }
+    }
+    if (!extFound) {
+      log("device extension " + std::string(req) + " not found",
+          Severity::WARNING);
+    }
   }
 
   vk::DeviceCreateInfo createInfo{};
-  extNames.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-
-  createInfo.setEnabledExtensionCount(extNames.size());
-  createInfo.setPEnabledExtensionNames(extNames);
-  createInfo.setEnabledLayerCount(0);
+  createInfo.enabledExtensionCount =
+      static_cast<uint32_t>(enabledExtensions.size());
+  createInfo.ppEnabledExtensionNames = enabledExtensions.data();
+  createInfo.queueCreateInfoCount = 1;
+  createInfo.pQueueCreateInfos = &queueCreateInfo;
+  createInfo.pEnabledFeatures = &deviceFeatures;
 
   device = physicalDevice.createDeviceUnique(createInfo);
+  log("succesfully created logical device", Severity::INFO);
 
-  std::string message = "the following extensions are enabled:";
-  for (auto &i : extNames) {
-    message += i;
-    message += "\n";
-  }
-  log(message, Severity::INFO);
+  graphicsQueue = device->getQueue(queueFamilyIndices["Graphics"].value(), 0);
+  presentQueue = device->getQueue(queueFamilyIndices["Present"].value(), 0);
 }
 
 vk::SurfaceFormatKHR Application::chooseFormat() {
@@ -255,9 +354,10 @@ void Application::createSwapChain() {
       physicalDevice.getSurfaceCapabilitiesKHR(surface).currentTransform;
 
   createInfo.clipped = 1;
+  createInfo.oldSwapchain = vk::SwapchainKHR{};
 
-  swapChain = device->createSwapchainKHR(createInfo);
-
+  auto res = device->createSwapchainKHR(&createInfo, nullptr, &swapChain);
+  assert(res == vk::Result::eSuccess);
   swapChainImages = device->getSwapchainImagesKHR(swapChain);
 
   swapChainImageViews.resize(swapChainImages.size());
@@ -267,7 +367,8 @@ void Application::createSwapChain() {
     vk::ImageViewCreateInfo info{};
     info.image = i;
     info.viewType = vk::ImageViewType::e2D;
-    info.format = physicalDevice.getSurfaceFormatsKHR(surface)[0].format;
+    info.format = swapChainSurfaceFormat.format;
+
     info.components.r = vk::ComponentSwizzle::eIdentity;
     info.components.g = vk::ComponentSwizzle::eIdentity;
     info.components.b = vk::ComponentSwizzle::eIdentity;
@@ -297,8 +398,7 @@ void Application::createRenderPass() {
   colourAttachment.storeOp = vk::AttachmentStoreOp::eStore;
 
   colourAttachment.initialLayout = vk::ImageLayout::eUndefined;
-  colourAttachment.finalLayout = vk::ImageLayout::eAttachmentOptimal;
-
+  colourAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
   vk::AttachmentReference colorAttachmentRef{};
   colorAttachmentRef.attachment = 0;
   colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
@@ -308,16 +408,14 @@ void Application::createRenderPass() {
   subpass.colorAttachmentCount = 1;
   subpass.pColorAttachments = &colorAttachmentRef;
 
-  vk::RenderPassCreateInfo renderPassInfo{};
   renderPassInfo.attachmentCount = 1;
   renderPassInfo.pAttachments = &colourAttachment;
   renderPassInfo.subpassCount = 1;
   renderPassInfo.pSubpasses = &subpass;
 
-  if (device->createRenderPass(&renderPassInfo, nullptr, &renderPass) !=
-      vk::Result::eSuccess) {
-    assert(false);
-  }
+  auto res = device->createRenderPass(&renderPassInfo, nullptr, &renderPass);
+
+  vk::resultCheck(res, "error, renderPass creation failed");
 }
 
 void Application::createGraphicsPipeline() {
@@ -340,11 +438,14 @@ void Application::createGraphicsPipeline() {
                                                       fragStageCreateInfo};
 
   vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
+  auto bindingDesc = getBindingDescription();
 
-  vertexInputInfo.vertexBindingDescriptionCount = 0;
-  vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-  vertexInputInfo.vertexAttributeDescriptionCount = 0;
-  vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+  auto attribDesc = getAttribDesc();
+  vertexInputInfo.vertexBindingDescriptionCount = 1;
+  vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+
+  vertexInputInfo.vertexAttributeDescriptionCount = attribDesc.size();
+  vertexInputInfo.pVertexAttributeDescriptions = attribDesc.data();
 
   vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
   inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
@@ -374,7 +475,7 @@ void Application::createGraphicsPipeline() {
   rasterizer.polygonMode = vk::PolygonMode::eFill;
   rasterizer.lineWidth = 1.0f;
 
-  rasterizer.cullMode = vk::CullModeFlagBits::eFront;
+  rasterizer.cullMode = vk::CullModeFlagBits::eBack;
   rasterizer.frontFace = vk::FrontFace::eClockwise;
   rasterizer.depthBiasEnable = VK_FALSE;
   rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -402,6 +503,17 @@ void Application::createGraphicsPipeline() {
   colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero; // Optional
   colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;             // Optional
 
+  vk::PipelineColorBlendStateCreateInfo colourBlendInfo{};
+  colourBlendInfo.pAttachments = &colorBlendAttachment;
+  colourBlendInfo.attachmentCount = 1;
+  colourBlendInfo.logicOp = vk::LogicOp::eCopy;
+  colourBlendInfo.logicOpEnable = vk::Bool32(false);
+
+  colourBlendInfo.blendConstants[0] = 1;
+  colourBlendInfo.blendConstants[1] = 1;
+  colourBlendInfo.blendConstants[2] = 1;
+  colourBlendInfo.blendConstants[3] = 1;
+
   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 
   if (device->createPipelineLayout(&pipelineLayoutCreateInfo, nullptr,
@@ -420,7 +532,8 @@ void Application::createGraphicsPipeline() {
   pipelineCreateInfo.pRasterizationState = &rasterizer;
   pipelineCreateInfo.pMultisampleState = &multisampling;
   pipelineCreateInfo.pDepthStencilState = nullptr; // Optional
-  // pipelineCreateInfo.pColorBlendState = &colorBlendAttachment;
+
+  pipelineCreateInfo.pColorBlendState = &colourBlendInfo;
   // pipelineCreateInfo.pDynamicState = &dynamicState;
   pipelineCreateInfo.layout = pipelineLayout;
 
@@ -464,6 +577,32 @@ void Application::createCommandPool() {
          vk::Result::eSuccess);
 }
 
+void Application::createVertexBuffer() {
+  vk::BufferCreateInfo bufferInfo{};
+  bufferInfo.size = sizeof(PosColourVertex) * vertices.size();
+  bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+  bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+  vk::resultCheck(device->createBuffer(&bufferInfo, nullptr, &vertexBuffer),
+                  "error creating vkbuffer");
+  vk::MemoryRequirements requirements =
+      device->getBufferMemoryRequirements(vertexBuffer);
+  vk::MemoryAllocateInfo memInfo{};
+  memInfo.allocationSize = requirements.size;
+  memInfo.memoryTypeIndex =
+      findMemoryType(requirements.memoryTypeBits,
+                     vk::MemoryPropertyFlagBits::eHostVisible |
+                         vk::MemoryPropertyFlagBits::eHostCoherent);
+
+  vk::resultCheck(
+      device->allocateMemory(&memInfo, nullptr, &vertexBufferMemory), "");
+  device->bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
+
+  void *data = device->mapMemory(vertexBufferMemory, 0, bufferInfo.size);
+  memcpy(data, vertices.data(), bufferInfo.size);
+  device->unmapMemory(vertexBufferMemory);
+}
+
 void Application::createCommandBuffer() {
   vk::CommandBufferAllocateInfo info{};
   info.commandPool = commandPool;
@@ -472,6 +611,22 @@ void Application::createCommandBuffer() {
 
   assert(device->allocateCommandBuffers(&info, &commandBuffer) ==
          vk::Result::eSuccess);
+}
+
+void Application::createSyncObjects() {
+  vk::SemaphoreCreateInfo sephInfo{};
+  vk::FenceCreateInfo fenceInfo{};
+  fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
+
+  vk::resultCheck(
+      device->createSemaphore(&sephInfo, nullptr, &imageAvailableSeph),
+      "failed to create imageSemaphore");
+  vk::resultCheck(
+      device->createSemaphore(&sephInfo, nullptr, &renderFinishedSeph),
+      "Failed to create renderfinished semaphore");
+
+  vk::resultCheck(device->createFence(&fenceInfo, nullptr, &inFlightfence),
+                  "failed to create inFlight fence");
 }
 
 void Application::recordCommandBuffer(uint32_t imageIndex) {
@@ -488,11 +643,17 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
   renderPassInfo.renderArea.extent = swapChainExtent;
 
   vk::ClearValue clearColour{};
-  clearColour.color = {1.0f, 1.0f, 1.0f, 1.0f};
+  clearColour.color = {0.0f, 0.0f, 0.0f, 0.0f};
   renderPassInfo.clearValueCount = 1;
   renderPassInfo.pClearValues = &clearColour;
 
   commandBuffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
+  commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                             graphicsPipeline);
+
+  vk::DeviceSize offsets = {0};
+
+  commandBuffer.bindVertexBuffers(0, 1, &vertexBuffer, &offsets);
 
   commandBuffer.draw(3, 1, 0, 0);
 
@@ -501,7 +662,70 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
 }
 
 void Application::drawFrame() {
-  recordCommandBuffer(0);
+  auto res =
+      device->waitForFences(1, &inFlightfence, vk::Bool32(true), UINT64_MAX);
+  vk::resultCheck(res, "waitForfences failed");
+
+  res = device->resetFences(1, &inFlightfence);
+  vk::resultCheck(res, "resetFences failed");
+
+  vk::AcquireNextImageInfoKHR info;
+  info.swapchain = swapChain;
+  info.semaphore = imageAvailableSeph;
+  info.timeout = UINT64_MAX;
+
+  auto imageIndex =
+      device->acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSeph);
+  assert(imageIndex.result == vk::Result::eSuccess);
+
+  commandBuffer.reset();
+  recordCommandBuffer(imageIndex.value);
+
+  vk::SubmitInfo submitInfo{};
+
+  vk::Semaphore waitSemaphores[] = {imageAvailableSeph};
+
+  vk::PipelineStageFlags waitStages[] = {
+      vk::PipelineStageFlagBits::eColorAttachmentOutput};
+  submitInfo.waitSemaphoreCount = 1;
+  submitInfo.pWaitSemaphores = waitSemaphores;
+  submitInfo.pWaitDstStageMask = waitStages;
+
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+
+  vk::Semaphore signalSephamores[] = {renderFinishedSeph};
+  submitInfo.signalSemaphoreCount = 1;
+  submitInfo.pSignalSemaphores = signalSephamores;
+
+  res = graphicsQueue.submit(1, &submitInfo, inFlightfence);
+  assert(res == vk::Result::eSuccess);
+
+  vk::SubpassDependency dep{};
+  dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+  dep.dstSubpass = 0;
+
+  dep.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+  dep.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+  dep.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+
+  renderPassInfo.dependencyCount = 1;
+  renderPassInfo.pDependencies = &dep;
+
+  vk::PresentInfoKHR presentInfo{};
+
+  vk::SwapchainKHR swapChains[] = {swapChain};
+
+  presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores = signalSephamores;
+  presentInfo.swapchainCount = 1;
+  presentInfo.pSwapchains = swapChains;
+  presentInfo.pImageIndices = &imageIndex.value;
+  presentInfo.pResults = nullptr;
+
+  res = presentQueue.presentKHR(&presentInfo);
+  assert(res == vk::Result::eSuccess);
 }
 void Application::cleanup() {
 
@@ -511,12 +735,64 @@ void Application::cleanup() {
   for (auto imageView : swapChainImageViews) {
     device->destroyImageView(imageView);
   }
+  device->freeMemory(vertexBufferMemory);
+
+  device->destroyBuffer(vertexBuffer);
+  device->destroyFence(inFlightfence);
+  device->destroySemaphore(renderFinishedSeph);
+  device->destroySemaphore(imageAvailableSeph);
+
   device->destroyCommandPool(commandPool);
   device->destroyPipelineLayout(pipelineLayout);
   device->destroyRenderPass(renderPass);
-  instance.destroySurfaceKHR(surface);
-  instance.destroy();
+  device->destroyPipeline(graphicsPipeline);
+  device->destroySwapchainKHR(swapChain);
 
+  instance.destroySurfaceKHR(surface);
+
+  // device is destroyed automatically in the destructor of uniqueDevice
   SDL_DestroyWindow(window);
   SDL_Quit();
+}
+
+vk::VertexInputBindingDescription Application::getBindingDescription() {
+  vk::VertexInputBindingDescription bindingDescription{};
+  bindingDescription.binding = 0;
+  bindingDescription.stride = sizeof(PosColourVertex);
+  bindingDescription.inputRate = vk::VertexInputRate::eVertex;
+
+  return bindingDescription;
+}
+
+std::array<vk::VertexInputAttributeDescription, 2>
+Application::getAttribDesc() {
+  vk::VertexInputAttributeDescription Pos{};
+  Pos.binding = 0;
+  Pos.location = 0;
+  Pos.format = vk::Format::eR32G32Sfloat;
+  Pos.offset = offsetof(PosColourVertex, pos);
+
+  vk::VertexInputAttributeDescription Colour{};
+  Colour.binding = 0;
+  Colour.location = 1;
+  Colour.format = vk::Format::eR32G32B32Sfloat;
+  Colour.offset = offsetof(PosColourVertex, colour);
+
+  return {Pos, Colour};
+}
+
+uint32_t Application::findMemoryType(uint32_t typeFilter,
+                                     vk::MemoryPropertyFlags properties) {
+  vk::PhysicalDeviceMemoryProperties memProps{};
+
+  physicalDevice.getMemoryProperties(&memProps);
+
+  for (unsigned int i = 0; i < memProps.memoryTypeCount; i++) {
+    if ((typeFilter & (1 << i)) &&
+        (memProps.memoryTypes[i].propertyFlags & properties) == properties) {
+      return i;
+    }
+  }
+  log("Unable to find suitable memory type", Severity::ERROR);
+  return -1;
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "vividx.h"
+#include "vulkan/vulkan_handles.hpp"
 #include <SDL2/SDL.h>
 #include <_types/_uint32_t.h>
 #include <cstdint>
@@ -13,6 +15,8 @@ class Application {
 private:
   SDL_Window *window;
   vk::Instance instance;
+  std::vector<const char *> validationLayers;
+  VkDebugUtilsMessengerEXT debugMessenger;
   vk::SurfaceKHR surface;
   vk::PhysicalDevice physicalDevice;
   vk::UniqueDevice device;
@@ -21,17 +25,19 @@ private:
   vk::SurfaceFormatKHR swapChainSurfaceFormat;
   vk::Extent2D swapChainExtent;
   uint32_t swapChainImageCount;
-  vk::SwapchainKHR swapChain;
+  vk::SwapchainKHR swapChain{};
   std::vector<vk::Image> swapChainImages;
   std::vector<vk::ImageView> swapChainImageViews;
   std::vector<vk::Framebuffer> swapChainFrameBuffers;
   vk::CommandPool commandPool;
   vk::CommandBuffer commandBuffer;
+  vk::RenderPassCreateInfo renderPassInfo{};
 
   vk::PresentModeKHR presentMode;
 
   std::map<std::string, std::optional<uint32_t>> queueFamilyIndices;
-
+  std::vector<PosColourVertex> vertices;
+  vk::DeviceMemory vertexBufferMemory;
   vk::RenderPass renderPass;
 
   vk::PipelineLayout pipelineLayout;
@@ -40,12 +46,15 @@ private:
 
   vk::Semaphore imageAvailableSeph;
   vk::Semaphore renderFinishedSeph;
-   vk::Fence inFlightfence;
+  vk::Fence inFlightfence;
+  vk::Buffer vertexBuffer;
 
   void initSDL();
   void initVulkan();
   void createSurface();
+
   void createInstance();
+  void createDebugCallback();
   void pickPhysicalDevice();
   void createLogicalDevice();
   vk::SurfaceFormatKHR chooseFormat();
@@ -54,8 +63,11 @@ private:
   void createSwapChain();
   void createRenderPass();
   void createGraphicsPipeline();
+
   void createFramebuffers();
   void createCommandPool();
+
+  void createVertexBuffer();
   void createCommandBuffer();
   void createSyncObjects();
 
@@ -65,6 +77,10 @@ private:
 
   void mainLoop();
   void cleanup();
+  static vk::VertexInputBindingDescription getBindingDescription();
+  static std::array<vk::VertexInputAttributeDescription, 2> getAttribDesc();
+  uint32_t findMemoryType(uint32_t typeFilter,
+                          vk::MemoryPropertyFlags properties);
 
 public:
   void run();
