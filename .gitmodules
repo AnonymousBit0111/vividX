@@ -1,3 +1,6 @@
 [submodule "lib/vkbootstrap"]
 	path = lib/vkbootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap
+[submodule "lib/imgui"]
+	path = lib/imgui
+	url = https://github.com/ocornut/imgui

@@ -1,2 +1,6 @@
 src/*.cpp
 lib/vkbootstrap/src/*.cpp
+lib/imgui/*.cpp
+lib/imgui/backends/*vulkan*.cpp
+lib/imgui/backends/*sdl2*.cpp
+lib/imgui/misc/cpp/*.cpp

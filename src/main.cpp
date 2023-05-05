@@ -16,7 +16,6 @@
 int main() {
   vividX::Application app;
 
-  std::cout << sizeof(vividX::Vector2) << "\n";
   app.run();
 
   return EXIT_SUCCESS;

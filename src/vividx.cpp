@@ -54,13 +54,13 @@ std::vector<char> readFile(const std::string &filename) {
 }
 
 vk::ShaderModule createShaderModule(const std::vector<char> &code,
-                                    vk::UniqueDevice &device) {
+                                    vk::Device &device) {
   vk::ShaderModule module;
   vk::ShaderModuleCreateInfo createInfo;
   createInfo.codeSize = code.size();
   createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
-  vk::Result res = device->createShaderModule(&createInfo, nullptr, &module);
+  vk::Result res = device.createShaderModule(&createInfo, nullptr, &module);
 
   assert(res == vk::Result::eSuccess);
   return module;
@@ -84,5 +84,9 @@ VkBool32 debugCallBack(VkDebugReportFlagsEXT flags,
 
   return VK_FALSE;
 }
+
+
+
+
 
 } // namespace vividX

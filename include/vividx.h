@@ -14,8 +14,12 @@ namespace vividX {
 struct Vector3 {
   float x, y, z;
 };
-struct Vector2{
-  float x,y;
+struct Vector2 {
+  float x, y;
+};
+
+struct Vector2i {
+  int x, y;
 };
 struct PosColourVertex {
   Vector2 pos;
@@ -31,15 +35,9 @@ enum class Severity {
 };
 void log(const std::string &message, Severity severity);
 
-vk::Instance createInstance();
-
-vk::SurfaceKHR createWindowSurface(SDL_Window *window);
-
-int initialiseVulkan(SDL_Window *window);
-
 std::vector<char> readFile(const std::string &filename);
 vk::ShaderModule createShaderModule(const std::vector<char> &code,
-                                    vk::UniqueDevice &device);
+                                    vk::Device &device);
 
 inline VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,

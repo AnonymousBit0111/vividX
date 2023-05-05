@@ -2,6 +2,9 @@
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
 #include "VkBootstrap.h"
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_vulkan.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_core.h"
@@ -13,10 +16,12 @@
 #include <_types/_uint32_t.h>
 #include <array>
 #include <cassert>
+#include <cfloat>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -29,11 +34,13 @@ using namespace vividX;
 // TODO change sephamore to semaphore
 void Application::run() {
 
-  vertices = vertices = {{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+  vertices = vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
                          {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
                          {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
   initSDL();
   initVulkan();
+
+  initImGui();
   mainLoop();
   cleanup();
 }
@@ -71,6 +78,63 @@ void Application::initVulkan() {
   createFramebuffers();
 
   createSyncObjects();
+}
+
+void Application::initImGui() {
+
+  ImGui::CreateContext();
+  ImGuiDescriptorPool = device->createDescriptorPool(poolInfo);
+
+  ImGui_ImplVulkan_InitInfo initInfo{};
+  initInfo.Allocator = nullptr;
+  initInfo.Instance = instance;
+  initInfo.ImageCount = swapChainFrameBuffers.size();
+  initInfo.MinImageCount = 2;
+  initInfo.Queue = graphicsQueue;
+
+  initInfo.QueueFamily = queueFamilyIndices["Graphics"].value();
+  initInfo.Device = *device;
+  initInfo.PhysicalDevice = physicalDevice;
+  initInfo.CheckVkResultFn = nullptr;
+  initInfo.DescriptorPool = ImGuiDescriptorPool;
+  initInfo.PipelineCache = {};
+
+  ImGui_ImplSDL2_InitForVulkan(window);
+  ImGui_ImplVulkan_Init(&initInfo, renderPass);
+
+  vk::CommandBufferAllocateInfo allocateInfo = {
+      commandPool,                      // Command pool
+      vk::CommandBufferLevel::ePrimary, // Command buffer level
+      1                                 // Number of command buffers to allocate
+  };
+  vk::CommandBuffer tempBuffer;
+
+  vk::resultCheck(device->allocateCommandBuffers(&allocateInfo, &tempBuffer),
+                  "");
+
+  vk::CommandBufferBeginInfo beginInfo = {
+      vk::CommandBufferUsageFlagBits::eOneTimeSubmit, // Flags
+      nullptr // Pointer to a VkCommandBufferInheritanceInfo struct
+  };
+
+  ImGui::StyleColorsDark();
+  tempBuffer.begin(beginInfo);
+
+  ImGui_ImplVulkan_CreateFontsTexture(tempBuffer);
+
+  tempBuffer.end();
+
+  vk::SubmitInfo submitInfo = {
+      {}, // Wait semaphores
+      {}, // Wait stages
+      {}, // Command buffers
+      {}, // Signal semaphores
+  };
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &tempBuffer;
+
+  graphicsQueue.submit(submitInfo);
+  graphicsQueue.waitIdle();
 }
 
 void Application::createInstance() {
@@ -182,6 +246,7 @@ void Application::mainLoop() {
       if (event.type == SDL_QUIT) {
         break;
       }
+      ImGui_ImplSDL2_ProcessEvent(&event);
     }
     drawFrame();
 
@@ -272,7 +337,8 @@ void Application::createLogicalDevice() {
   createInfo.pQueueCreateInfos = &queueCreateInfo;
   createInfo.pEnabledFeatures = &deviceFeatures;
 
-  device = physicalDevice.createDeviceUnique(createInfo);
+  device =
+      std::make_unique<vk::Device>(physicalDevice.createDevice(createInfo));
   log("succesfully created logical device", Severity::INFO);
 
   graphicsQueue = device->getQueue(queueFamilyIndices["Graphics"].value(), 0);
@@ -293,7 +359,8 @@ vk::SurfaceFormatKHR Application::chooseFormat() {
   for (auto &availableFormat : availableFormats) {
     if (availableFormat.format == vk::Format::eB8G8R8A8Srgb &&
         availableFormat.colorSpace ==
-            vk::ColorSpaceKHR::eVkColorspaceSrgbNonlinear) {
+            vk::ColorSpaceKHR::eDisplayNativeAMD) // im not sure why but this yields the best results
+            {
       return availableFormat;
     }
   }
@@ -421,8 +488,8 @@ void Application::createRenderPass() {
 void Application::createGraphicsPipeline() {
   auto vertShaderCode = readFile("shaders/vert.spv");
   auto fragShaderCode = readFile("shaders/frag.spv");
-  vk::ShaderModule fragModule = createShaderModule(fragShaderCode, device);
-  vk::ShaderModule vertModule = createShaderModule(vertShaderCode, device);
+  vk::ShaderModule fragModule = createShaderModule(fragShaderCode, *device);
+  vk::ShaderModule vertModule = createShaderModule(vertShaderCode, *device);
 
   vk::PipelineShaderStageCreateInfo vertStageCreateInfo{};
   vertStageCreateInfo.stage = vk::ShaderStageFlagBits::eVertex;
@@ -656,19 +723,32 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
   commandBuffer.bindVertexBuffers(0, 1, &vertexBuffer, &offsets);
 
   commandBuffer.draw(3, 1, 0, 0);
+  ImGui::Render();
+  auto draw_data = ImGui::GetDrawData();
+
+  const bool is_minimized =
+      (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+  if (!is_minimized) {
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+  }
 
   commandBuffer.endRenderPass();
   commandBuffer.end();
 }
 
 void Application::drawFrame() {
+
   auto res =
       device->waitForFences(1, &inFlightfence, vk::Bool32(true), UINT64_MAX);
   vk::resultCheck(res, "waitForfences failed");
 
   res = device->resetFences(1, &inFlightfence);
   vk::resultCheck(res, "resetFences failed");
+  ImGui_ImplVulkan_NewFrame();
+  ImGui_ImplSDL2_NewFrame();
+  ImGui::NewFrame();
 
+  ImGui::ShowDemoWindow();
   vk::AcquireNextImageInfoKHR info;
   info.swapchain = swapChain;
   info.semaphore = imageAvailableSeph;
@@ -723,11 +803,12 @@ void Application::drawFrame() {
   presentInfo.pSwapchains = swapChains;
   presentInfo.pImageIndices = &imageIndex.value;
   presentInfo.pResults = nullptr;
-
   res = presentQueue.presentKHR(&presentInfo);
   assert(res == vk::Result::eSuccess);
 }
 void Application::cleanup() {
+
+  ImGui_ImplVulkan_Shutdown();
 
   for (auto &i : swapChainFrameBuffers) {
     device->destroy(i);
@@ -747,10 +828,10 @@ void Application::cleanup() {
   device->destroyRenderPass(renderPass);
   device->destroyPipeline(graphicsPipeline);
   device->destroySwapchainKHR(swapChain);
-
+  device->destroyDescriptorPool(ImGuiDescriptorPool);
+  device->destroy();
   instance.destroySurfaceKHR(surface);
 
-  // device is destroyed automatically in the destructor of uniqueDevice
   SDL_DestroyWindow(window);
   SDL_Quit();
 }

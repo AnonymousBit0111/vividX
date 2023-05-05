@@ -6,6 +6,7 @@
 #include <_types/_uint32_t.h>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,7 +20,6 @@ private:
   VkDebugUtilsMessengerEXT debugMessenger;
   vk::SurfaceKHR surface;
   vk::PhysicalDevice physicalDevice;
-  vk::UniqueDevice device;
   vk::Queue graphicsQueue;
   vk::Queue presentQueue;
   vk::SurfaceFormatKHR swapChainSurfaceFormat;
@@ -48,11 +48,35 @@ private:
   vk::Semaphore renderFinishedSeph;
   vk::Fence inFlightfence;
   vk::Buffer vertexBuffer;
+  std::unique_ptr<vk::Device> device;
+  vk::DescriptorPool descPool;
+
+  std::vector<vk::DescriptorPoolSize> poolSizes = {
+      {vk::DescriptorType::eSampler, 1000},
+      {vk::DescriptorType::eCombinedImageSampler, 1000},
+      {vk::DescriptorType::eSampledImage, 1000},
+      {vk::DescriptorType::eStorageImage, 1000},
+      {vk::DescriptorType::eUniformTexelBuffer, 1000},
+      {vk::DescriptorType::eStorageTexelBuffer, 1000},
+      {vk::DescriptorType::eUniformBuffer, 1000},
+      {vk::DescriptorType::eStorageBuffer, 1000},
+      {vk::DescriptorType::eUniformBufferDynamic, 1000},
+      {vk::DescriptorType::eStorageBufferDynamic, 1000},
+      {vk::DescriptorType::eInputAttachment, 1000}};
+
+  // Create the descriptor pool
+  vk::DescriptorPoolCreateInfo poolInfo = {
+      {},                                      // Flags
+      1000,                                    // Max sets
+      static_cast<uint32_t>(poolSizes.size()), // Pool size count
+      poolSizes.data()                         // Pool sizes
+  };
+  vk::DescriptorPool ImGuiDescriptorPool;
 
   void initSDL();
   void initVulkan();
+  void initImGui();
   void createSurface();
-
   void createInstance();
   void createDebugCallback();
   void pickPhysicalDevice();
