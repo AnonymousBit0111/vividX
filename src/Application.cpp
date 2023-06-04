@@ -1,7 +1,12 @@
 #include "VividX/Application.h"
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
+#include "VividX/RenderPass.h"
+#include "VividX/SwapChain.h"
+#include "VividX/VertexBuffer.h"
 #include "VkBootstrap.h"
+#include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
@@ -27,16 +32,24 @@
 #include <vector>
 
 #include <vulkan/vulkan_macos.h>
+
+#include <glm/gtc/matrix_transform.hpp>
 const int WIDTH = 800;
 const int HEIGHT = 600;
 
 using namespace vividX;
 // TODO change sephamore to semaphore
+
+Application::Application()
+
+    : cam(Vector2{1600, 900}) {}
 void Application::run() {
 
-  vertices = vertices = {{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                         {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-                         {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}};
+  vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
+              {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
+              {{0.f, 100.5f}, {0.0f, 0.0f, 1.0f}}
+
+  };
   initSDL();
   initVulkan();
 
@@ -68,14 +81,21 @@ void Application::initVulkan() {
   swapChainSurfaceFormat = chooseFormat();
   presentMode = choosePresentMode();
   swapChainExtent = chooseExtent();
-  createSwapChain();
+
+  m_SwapChain = std::make_unique<vividX::SwapChain>(
+      physicalDevice, device.get(),
+      Vector2ui{swapChainExtent.width, swapChainExtent.height}, surface,
+      queueFamilyIndices["Graphics"].value(), vk::PresentModeKHR::eMailbox);
+
+  m_Renderpass = std::make_unique<vividX::RenderPass>(device.get(),
+                                                      swapChainSurfaceFormat);
+
+  m_SwapChain->createFrameBuffers(m_Renderpass.get());
   createVertexBuffer();
   createCommandPool();
   createCommandBuffer();
 
-  createRenderPass();
   createGraphicsPipeline();
-  createFramebuffers();
 
   createSyncObjects();
 }
@@ -88,7 +108,7 @@ void Application::initImGui() {
   ImGui_ImplVulkan_InitInfo initInfo{};
   initInfo.Allocator = nullptr;
   initInfo.Instance = instance;
-  initInfo.ImageCount = swapChainFrameBuffers.size();
+  initInfo.ImageCount = m_SwapChain->getImageCount();
   initInfo.MinImageCount = 2;
   initInfo.Queue = graphicsQueue;
 
@@ -100,7 +120,7 @@ void Application::initImGui() {
   initInfo.PipelineCache = {};
 
   ImGui_ImplSDL2_InitForVulkan(window);
-  ImGui_ImplVulkan_Init(&initInfo, renderPass);
+  ImGui_ImplVulkan_Init(&initInfo, m_Renderpass->get());
 
   vk::CommandBufferAllocateInfo allocateInfo = {
       commandPool,                      // Command pool
@@ -135,6 +155,8 @@ void Application::initImGui() {
 
   graphicsQueue.submit(submitInfo);
   graphicsQueue.waitIdle();
+
+  ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
 void Application::createInstance() {
@@ -359,8 +381,9 @@ vk::SurfaceFormatKHR Application::chooseFormat() {
   for (auto &availableFormat : availableFormats) {
     if (availableFormat.format == vk::Format::eB8G8R8A8Srgb &&
         availableFormat.colorSpace ==
-            vk::ColorSpaceKHR::eDisplayNativeAMD) // im not sure why but this yields the best results
-            {
+            vk::ColorSpaceKHR::eDisplayNativeAMD) // im not sure why but this
+                                                  // yields the best results
+    {
       return availableFormat;
     }
   }
@@ -406,83 +429,54 @@ vk::Extent2D Application::chooseExtent() {
 }
 
 void Application::createSwapChain() {
-  vk::SwapchainCreateInfoKHR createInfo{};
-  createInfo.surface = surface;
-  createInfo.minImageCount = swapChainImageCount;
+  // vk::SwapchainCreateInfoKHR createInfo{};
+  // createInfo.surface = surface;
+  // createInfo.minImageCount = swapChainImageCount;
 
-  createInfo.imageFormat = swapChainSurfaceFormat.format;
-  createInfo.imageColorSpace = swapChainSurfaceFormat.colorSpace;
-  createInfo.imageExtent = swapChainExtent;
-  createInfo.imageArrayLayers = 1;
-  createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
-  createInfo.presentMode = presentMode;
-  createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-  createInfo.preTransform =
-      physicalDevice.getSurfaceCapabilitiesKHR(surface).currentTransform;
+  // createInfo.imageFormat = swapChainSurfaceFormat.format;
+  // createInfo.imageColorSpace = swapChainSurfaceFormat.colorSpace;
+  // createInfo.imageExtent = swapChainExtent;
+  // createInfo.imageArrayLayers = 1;
+  // createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+  // createInfo.presentMode = presentMode;
+  // createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+  // createInfo.preTransform =
+  //     physicalDevice.getSurfaceCapabilitiesKHR(surface).currentTransform;
 
-  createInfo.clipped = 1;
-  createInfo.oldSwapchain = vk::SwapchainKHR{};
+  // createInfo.clipped = 1;
+  // createInfo.oldSwapchain = vk::SwapchainKHR{};
 
-  auto res = device->createSwapchainKHR(&createInfo, nullptr, &swapChain);
-  assert(res == vk::Result::eSuccess);
-  swapChainImages = device->getSwapchainImagesKHR(swapChain);
+  // auto res = device->createSwapchainKHR(&createInfo, nullptr, &swapChain);
+  // assert(res == vk::Result::eSuccess);
+  // swapChainImages = device->getSwapchainImagesKHR(swapChain);
 
-  swapChainImageViews.resize(swapChainImages.size());
+  // swapChainImageViews.resize(swapChainImages.size());
 
-  int index = 0;
-  for (auto &i : swapChainImages) {
-    vk::ImageViewCreateInfo info{};
-    info.image = i;
-    info.viewType = vk::ImageViewType::e2D;
-    info.format = swapChainSurfaceFormat.format;
+  // int index = 0;
+  // for (auto &i : swapChainImages) {
+  //   vk::ImageViewCreateInfo info{};
+  //   info.image = i;
+  //   info.viewType = vk::ImageViewType::e2D;
+  //   info.format = swapChainSurfaceFormat.format;
 
-    info.components.r = vk::ComponentSwizzle::eIdentity;
-    info.components.g = vk::ComponentSwizzle::eIdentity;
-    info.components.b = vk::ComponentSwizzle::eIdentity;
-    info.components.a = vk::ComponentSwizzle::eIdentity;
+  //   info.components.r = vk::ComponentSwizzle::eIdentity;
+  //   info.components.g = vk::ComponentSwizzle::eIdentity;
+  //   info.components.b = vk::ComponentSwizzle::eIdentity;
+  //   info.components.a = vk::ComponentSwizzle::eIdentity;
 
-    info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+  //   info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
 
-    info.subresourceRange.baseMipLevel = 0;
-    info.subresourceRange.levelCount = 1;
-    info.subresourceRange.baseArrayLayer = 0;
-    info.subresourceRange.layerCount = 1;
-    vk::Result res =
-        device->createImageView(&info, nullptr, &swapChainImageViews[index]);
-    if (res != vk::Result::eSuccess) {
-      assert(false);
-    }
-    index++;
-  }
-}
-
-void Application::createRenderPass() {
-  vk::AttachmentDescription colourAttachment{};
-  colourAttachment.format = swapChainSurfaceFormat.format;
-  colourAttachment.samples = vk::SampleCountFlagBits::e1;
-
-  colourAttachment.loadOp = vk::AttachmentLoadOp::eClear;
-  colourAttachment.storeOp = vk::AttachmentStoreOp::eStore;
-
-  colourAttachment.initialLayout = vk::ImageLayout::eUndefined;
-  colourAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
-  vk::AttachmentReference colorAttachmentRef{};
-  colorAttachmentRef.attachment = 0;
-  colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
-
-  vk::SubpassDescription subpass{};
-  subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &colorAttachmentRef;
-
-  renderPassInfo.attachmentCount = 1;
-  renderPassInfo.pAttachments = &colourAttachment;
-  renderPassInfo.subpassCount = 1;
-  renderPassInfo.pSubpasses = &subpass;
-
-  auto res = device->createRenderPass(&renderPassInfo, nullptr, &renderPass);
-
-  vk::resultCheck(res, "error, renderPass creation failed");
+  //   info.subresourceRange.baseMipLevel = 0;
+  //   info.subresourceRange.levelCount = 1;
+  //   info.subresourceRange.baseArrayLayer = 0;
+  //   info.subresourceRange.layerCount = 1;
+  //   vk::Result res =
+  //       device->createImageView(&info, nullptr, &swapChainImageViews[index]);
+  //   if (res != vk::Result::eSuccess) {
+  //     assert(false);
+  //   }
+  //   index++;
+  // }
 }
 
 void Application::createGraphicsPipeline() {
@@ -583,6 +577,17 @@ void Application::createGraphicsPipeline() {
 
   vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 
+  vk::PushConstantRange pushConstantRange{
+
+  };
+  pushConstantRange.offset = 0;
+
+  pushConstantRange.size = sizeof(MeshPushConstants);
+  pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eVertex;
+
+  pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+  pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+
   if (device->createPipelineLayout(&pipelineLayoutCreateInfo, nullptr,
                                    &pipelineLayout) != vk::Result::eSuccess) {
     assert(false);
@@ -599,12 +604,11 @@ void Application::createGraphicsPipeline() {
   pipelineCreateInfo.pRasterizationState = &rasterizer;
   pipelineCreateInfo.pMultisampleState = &multisampling;
   pipelineCreateInfo.pDepthStencilState = nullptr; // Optional
-
   pipelineCreateInfo.pColorBlendState = &colourBlendInfo;
   // pipelineCreateInfo.pDynamicState = &dynamicState;
   pipelineCreateInfo.layout = pipelineLayout;
 
-  pipelineCreateInfo.renderPass = renderPass;
+  pipelineCreateInfo.renderPass = m_Renderpass->get();
   pipelineCreateInfo.subpass = 0;
 
   if (device->createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipelineCreateInfo,
@@ -617,24 +621,6 @@ void Application::createGraphicsPipeline() {
   device->destroyShaderModule(vertModule);
 }
 
-void Application::createFramebuffers() {
-  swapChainFrameBuffers.resize(swapChainImageViews.size());
-
-  for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-    vk::ImageView attachments[] = {swapChainImageViews[i]};
-    vk::FramebufferCreateInfo frameBufferInfo{};
-    frameBufferInfo.renderPass = renderPass;
-    frameBufferInfo.attachmentCount = 1;
-    frameBufferInfo.pAttachments = attachments;
-    frameBufferInfo.width = swapChainExtent.width;
-    frameBufferInfo.height = swapChainExtent.height;
-    frameBufferInfo.layers = 1;
-    assert(device->createFramebuffer(&frameBufferInfo, nullptr,
-                                     &swapChainFrameBuffers[i]) ==
-           vk::Result::eSuccess);
-  }
-}
-
 void Application::createCommandPool() {
   vk::CommandPoolCreateInfo poolInfo{};
   poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -645,29 +631,11 @@ void Application::createCommandPool() {
 }
 
 void Application::createVertexBuffer() {
-  vk::BufferCreateInfo bufferInfo{};
-  bufferInfo.size = sizeof(PosColourVertex) * vertices.size();
-  bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-  bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
-  vk::resultCheck(device->createBuffer(&bufferInfo, nullptr, &vertexBuffer),
-                  "error creating vkbuffer");
-  vk::MemoryRequirements requirements =
-      device->getBufferMemoryRequirements(vertexBuffer);
-  vk::MemoryAllocateInfo memInfo{};
-  memInfo.allocationSize = requirements.size;
-  memInfo.memoryTypeIndex =
-      findMemoryType(requirements.memoryTypeBits,
-                     vk::MemoryPropertyFlagBits::eHostVisible |
-                         vk::MemoryPropertyFlagBits::eHostCoherent);
+  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(
+      device.get(), sizeof(vertices[0]) * vertices.size(), physicalDevice);
 
-  vk::resultCheck(
-      device->allocateMemory(&memInfo, nullptr, &vertexBufferMemory), "");
-  device->bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-
-  void *data = device->mapMemory(vertexBufferMemory, 0, bufferInfo.size);
-  memcpy(data, vertices.data(), bufferInfo.size);
-  device->unmapMemory(vertexBufferMemory);
+  m_vertexBuffer->update(vertices);
 }
 
 void Application::createCommandBuffer() {
@@ -695,6 +663,7 @@ void Application::createSyncObjects() {
   vk::resultCheck(device->createFence(&fenceInfo, nullptr, &inFlightfence),
                   "failed to create inFlight fence");
 }
+static glm::vec4 colour = {0, 0, 0, 1.0f};
 
 void Application::recordCommandBuffer(uint32_t imageIndex) {
   vk::CommandBufferBeginInfo beginInfo{};
@@ -703,8 +672,8 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
   assert(commandBuffer.begin(&beginInfo) == vk::Result::eSuccess);
 
   vk::RenderPassBeginInfo renderPassInfo{};
-  renderPassInfo.renderPass = renderPass;
-  renderPassInfo.framebuffer = swapChainFrameBuffers[imageIndex];
+  renderPassInfo.renderPass = m_Renderpass->get();
+  renderPassInfo.framebuffer = m_SwapChain->getFrameBuffer(imageIndex);
 
   renderPassInfo.renderArea.offset = vk::Offset2D{0, 0};
   renderPassInfo.renderArea.extent = swapChainExtent;
@@ -718,9 +687,16 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
   commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                              graphicsPipeline);
 
-  vk::DeviceSize offsets = {0};
+  MeshPushConstants pushconstants;
+  pushconstants.data = colour;
+  pushconstants.render_matrix = cam.getViewProjMatrix();
+  commandBuffer.pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eVertex,
+                              0, sizeof(pushconstants), &pushconstants);
 
-  commandBuffer.bindVertexBuffers(0, 1, &vertexBuffer, &offsets);
+  vk::DeviceSize offsets = {0};
+  auto a = m_vertexBuffer->getBuffer();
+
+  commandBuffer.bindVertexBuffers(0, 1, &a, &offsets);
 
   commandBuffer.draw(3, 1, 0, 0);
   ImGui::Render();
@@ -749,14 +725,19 @@ void Application::drawFrame() {
   ImGui::NewFrame();
 
   ImGui::ShowDemoWindow();
+
+  ImGui::Begin("colour");
+  ImGui::ColorEdit4("colourEdit", &colour.r);
+  ImGui::End();
   vk::AcquireNextImageInfoKHR info;
   info.swapchain = swapChain;
   info.semaphore = imageAvailableSeph;
   info.timeout = UINT64_MAX;
 
-  auto imageIndex =
-      device->acquireNextImageKHR(swapChain, UINT64_MAX, imageAvailableSeph);
-  assert(imageIndex.result == vk::Result::eSuccess);
+  auto imageIndex = device->acquireNextImageKHR(m_SwapChain->get(), UINT64_MAX,
+                                                imageAvailableSeph);
+
+  vk::resultCheck(imageIndex.result, "");
 
   commandBuffer.reset();
   recordCommandBuffer(imageIndex.value);
@@ -795,7 +776,7 @@ void Application::drawFrame() {
 
   vk::PresentInfoKHR presentInfo{};
 
-  vk::SwapchainKHR swapChains[] = {swapChain};
+  vk::SwapchainKHR swapChains[] = {m_SwapChain->get()};
 
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores = signalSephamores;
@@ -816,21 +797,15 @@ void Application::cleanup() {
   for (auto imageView : swapChainImageViews) {
     device->destroyImageView(imageView);
   }
-  device->freeMemory(vertexBufferMemory);
 
-  device->destroyBuffer(vertexBuffer);
   device->destroyFence(inFlightfence);
   device->destroySemaphore(renderFinishedSeph);
   device->destroySemaphore(imageAvailableSeph);
 
   device->destroyCommandPool(commandPool);
   device->destroyPipelineLayout(pipelineLayout);
-  device->destroyRenderPass(renderPass);
   device->destroyPipeline(graphicsPipeline);
-  device->destroySwapchainKHR(swapChain);
   device->destroyDescriptorPool(ImGuiDescriptorPool);
-  device->destroy();
-  instance.destroySurfaceKHR(surface);
 
   SDL_DestroyWindow(window);
   SDL_Quit();
@@ -860,20 +835,4 @@ Application::getAttribDesc() {
   Colour.offset = offsetof(PosColourVertex, colour);
 
   return {Pos, Colour};
-}
-
-uint32_t Application::findMemoryType(uint32_t typeFilter,
-                                     vk::MemoryPropertyFlags properties) {
-  vk::PhysicalDeviceMemoryProperties memProps{};
-
-  physicalDevice.getMemoryProperties(&memProps);
-
-  for (unsigned int i = 0; i < memProps.memoryTypeCount; i++) {
-    if ((typeFilter & (1 << i)) &&
-        (memProps.memoryTypes[i].propertyFlags & properties) == properties) {
-      return i;
-    }
-  }
-  log("Unable to find suitable memory type", Severity::ERROR);
-  return -1;
 }

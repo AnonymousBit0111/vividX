@@ -1,6 +1,7 @@
 #include "vividx.h"
 #include "SDL2/SDL_video.h"
 
+#include <_types/_uint32_t.h>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -40,6 +41,7 @@ void log(const std::string &message, Severity severity) {
 }
 
 std::vector<char> readFile(const std::string &filename) {
+
   std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
   if (!file.is_open()) {
@@ -56,7 +58,7 @@ std::vector<char> readFile(const std::string &filename) {
 vk::ShaderModule createShaderModule(const std::vector<char> &code,
                                     vk::Device &device) {
   vk::ShaderModule module;
-  vk::ShaderModuleCreateInfo createInfo;
+  vk::ShaderModuleCreateInfo createInfo{};
   createInfo.codeSize = code.size();
   createInfo.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
@@ -85,8 +87,45 @@ VkBool32 debugCallBack(VkDebugReportFlagsEXT flags,
   return VK_FALSE;
 }
 
+vk::SurfaceFormatKHR chooseFormat(vk::PhysicalDevice &physicalDevice,
+                                  vk::SurfaceKHR &surface,
+                                  uint32_t graphicsIndex) {
+  vk::Bool32 supported;
 
+  vk::Result res =
+      physicalDevice.getSurfaceSupportKHR(graphicsIndex, surface, &supported);
 
+  if (!supported) {
+    assert(false);
+  }
 
+  auto availableFormats = physicalDevice.getSurfaceFormatsKHR(surface);
+  for (auto &availableFormat : availableFormats) {
+    if (availableFormat.format == vk::Format::eB8G8R8A8Srgb &&
+        availableFormat.colorSpace ==
+            vk::ColorSpaceKHR::eDisplayNativeAMD) // im not sure why but this
+                                                  // yields the best results
+    {
+      return availableFormat;
+    }
+  }
+  return availableFormats[0];
+}
+
+uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
+                        vk::PhysicalDevice &physicalDevice) {
+  vk::PhysicalDeviceMemoryProperties memProps{};
+
+  physicalDevice.getMemoryProperties(&memProps);
+
+  for (unsigned int i = 0; i < memProps.memoryTypeCount; i++) {
+    if ((typeFilter & (1 << i)) &&
+        (memProps.memoryTypes[i].propertyFlags & properties) == properties) {
+      return i;
+    }
+  }
+  log("Unable to find suitable memory type", Severity::ERROR);
+  return -1;
+}
 
 } // namespace vividX

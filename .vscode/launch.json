@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug",
-            "program": "${workspaceFolder}/bin/Harmonious-Paradox",
+            "program": "${workspaceFolder}/bin/vividX",
             "args": [],
             "cwd": "${workspaceFolder}"
         }

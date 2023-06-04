@@ -28,4 +28,10 @@
 *.app
 
 .cache
-.sconsign.dblite
+.sconsign.
+
+*.cmake
+**Cache**
+build
+CmakeFiles
+Makefile

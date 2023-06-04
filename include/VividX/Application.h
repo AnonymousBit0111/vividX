@@ -1,5 +1,8 @@
 #pragma once
 
+#include "VividX/RenderPass.h"
+#include "VividX/SwapChain.h"
+#include "VividX/VertexBuffer.h"
 #include "vividx.h"
 #include "vulkan/vulkan_handles.hpp"
 #include <SDL2/SDL.h>
@@ -11,6 +14,8 @@
 #include <string>
 #include <vector>
 #include <vulkan/vulkan.hpp>
+
+#include "VividX/Camera2D.h"
 namespace vividX {
 class Application {
 private:
@@ -51,6 +56,10 @@ private:
   std::unique_ptr<vk::Device> device;
   vk::DescriptorPool descPool;
 
+  std::unique_ptr<vividX::RenderPass> m_Renderpass;
+  std::unique_ptr<vividX::SwapChain> m_SwapChain;
+  std::unique_ptr<vividX::VertexBuffer> m_vertexBuffer;
+
   std::vector<vk::DescriptorPoolSize> poolSizes = {
       {vk::DescriptorType::eSampler, 1000},
       {vk::DescriptorType::eCombinedImageSampler, 1000},
@@ -73,6 +82,8 @@ private:
   };
   vk::DescriptorPool ImGuiDescriptorPool;
 
+  Camera2D cam;
+
   void initSDL();
   void initVulkan();
   void initImGui();
@@ -85,10 +96,8 @@ private:
   vk::PresentModeKHR choosePresentMode();
   vk::Extent2D chooseExtent();
   void createSwapChain();
-  void createRenderPass();
   void createGraphicsPipeline();
 
-  void createFramebuffers();
   void createCommandPool();
 
   void createVertexBuffer();
@@ -103,11 +112,10 @@ private:
   void cleanup();
   static vk::VertexInputBindingDescription getBindingDescription();
   static std::array<vk::VertexInputAttributeDescription, 2> getAttribDesc();
-  uint32_t findMemoryType(uint32_t typeFilter,
-                          vk::MemoryPropertyFlags properties);
 
 public:
   void run();
+  Application();
 
   ~Application() {}
 };

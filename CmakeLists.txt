@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
-project(Harmonious-Paradox)
+project(vividX)
 
 # Enable generation of compile commands database
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Set C++ standard to C++20
 set(CMAKE_CXX_STANDARD 20)
-
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "./bin")
 # Set compiler flags
 set(CMAKE_CXX_FLAGS "-g -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer")
 

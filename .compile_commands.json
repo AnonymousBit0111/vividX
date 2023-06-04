@@ -1,66 +1,81 @@
 {
   "lib/imgui/backends/imgui_impl_sdl2.cpp:": {
-    "command": "clang++ -o lib/imgui/backends/imgui_impl_sdl2.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/backends/imgui_impl_sdl2.cpp",
+    "command": "clang++ -o lib/imgui/backends/imgui_impl_sdl2.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/backends/imgui_impl_sdl2.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/backends/imgui_impl_sdl2.cpp"
   },
   "lib/imgui/backends/imgui_impl_vulkan.cpp:": {
-    "command": "clang++ -o lib/imgui/backends/imgui_impl_vulkan.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/backends/imgui_impl_vulkan.cpp",
+    "command": "clang++ -o lib/imgui/backends/imgui_impl_vulkan.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/backends/imgui_impl_vulkan.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/backends/imgui_impl_vulkan.cpp"
   },
   "lib/imgui/imgui.cpp:": {
-    "command": "clang++ -o lib/imgui/imgui.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/imgui.cpp",
+    "command": "clang++ -o lib/imgui/imgui.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/imgui.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/imgui.cpp"
   },
   "lib/imgui/imgui_demo.cpp:": {
-    "command": "clang++ -o lib/imgui/imgui_demo.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/imgui_demo.cpp",
+    "command": "clang++ -o lib/imgui/imgui_demo.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/imgui_demo.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/imgui_demo.cpp"
   },
   "lib/imgui/imgui_draw.cpp:": {
-    "command": "clang++ -o lib/imgui/imgui_draw.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/imgui_draw.cpp",
+    "command": "clang++ -o lib/imgui/imgui_draw.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/imgui_draw.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/imgui_draw.cpp"
   },
   "lib/imgui/imgui_tables.cpp:": {
-    "command": "clang++ -o lib/imgui/imgui_tables.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/imgui_tables.cpp",
+    "command": "clang++ -o lib/imgui/imgui_tables.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/imgui_tables.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/imgui_tables.cpp"
   },
   "lib/imgui/imgui_widgets.cpp:": {
-    "command": "clang++ -o lib/imgui/imgui_widgets.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/imgui_widgets.cpp",
+    "command": "clang++ -o lib/imgui/imgui_widgets.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/imgui_widgets.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/imgui_widgets.cpp"
   },
   "lib/imgui/misc/cpp/imgui_stdlib.cpp:": {
-    "command": "clang++ -o lib/imgui/misc/cpp/imgui_stdlib.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/imgui/misc/cpp/imgui_stdlib.cpp",
+    "command": "clang++ -o lib/imgui/misc/cpp/imgui_stdlib.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/imgui/misc/cpp/imgui_stdlib.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/imgui/misc/cpp/imgui_stdlib.cpp"
   },
   "lib/vkbootstrap/src/VkBootstrap.cpp:": {
-    "command": "clang++ -o lib/vkbootstrap/src/VkBootstrap.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include lib/vkbootstrap/src/VkBootstrap.cpp",
+    "command": "clang++ -o lib/vkbootstrap/src/VkBootstrap.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm lib/vkbootstrap/src/VkBootstrap.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "lib/vkbootstrap/src/VkBootstrap.cpp"
   },
   "src/Application.cpp:": {
-    "command": "clang++ -o src/Application.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include src/Application.cpp",
+    "command": "clang++ -o src/Application.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/Application.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "src/Application.cpp"
   },
+  "src/Camera2D.cpp:": {
+    "command": "clang++ -o src/Camera2D.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/Camera2D.cpp",
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/Camera2D.cpp"
+  },
+  "src/RenderPass.cpp:": {
+    "command": "clang++ -o src/RenderPass.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/RenderPass.cpp",
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/RenderPass.cpp"
+  },
   "src/SwapChain.cpp:": {
-    "command": "clang++ -o src/SwapChain.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include src/SwapChain.cpp",
+    "command": "clang++ -o src/SwapChain.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/SwapChain.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "src/SwapChain.cpp"
   },
+  "src/VertexBuffer.cpp:": {
+    "command": "clang++ -o src/VertexBuffer.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/VertexBuffer.cpp",
+    "directory": "/Users/ilya/engineDev/vividX",
+    "file": "src/VertexBuffer.cpp"
+  },
   "src/main.cpp:": {
-    "command": "clang++ -o src/main.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include src/main.cpp",
+    "command": "clang++ -o src/main.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/main.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "src/main.cpp"
   },
   "src/vividx.cpp:": {
-    "command": "clang++ -o src/vividx.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -DDEBUG -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include src/vividx.cpp",
+    "command": "clang++ -o src/vividx.o -c -g -c -std=c++20 -fsanitize=address,undefined,alignment,bounds,pointer-overflow -fno-omit-frame-pointer -Iinclude -Ilib/vkbootstrap/src -Ilib/imgui -Ilib/imgui/backends -I~/VulkanSDK/1.3.243.0/macOS/include -Ilib/glm/glm src/vividx.cpp",
     "directory": "/Users/ilya/engineDev/vividX",
     "file": "src/vividx.cpp"
   }
