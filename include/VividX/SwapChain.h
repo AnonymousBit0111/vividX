@@ -25,6 +25,7 @@ private:
   std::vector<vk::Framebuffer> m_framebuffers;
 
   Vector2ui m_imageSize;
+  vk::Extent2D m_extent;
 
 public:
   SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
@@ -40,6 +41,8 @@ public:
     return m_framebuffers[index];
   }
   uint32_t getImageCount() { return m_images.size(); }
+
+  vk::Extent2D getExtent(){return m_extent;}
 
 
   ~SwapChain();

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "SDL2/SDL_vulkan.h"
 #include "VkBootstrap.h"
@@ -127,5 +128,66 @@ uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
   log("Unable to find suitable memory type", Severity::ERROR);
   return -1;
 }
+vk::VertexInputBindingDescription getBindingDescription() {
+  vk::VertexInputBindingDescription bindingDescription{};
+  bindingDescription.binding = 0;
+  bindingDescription.stride = sizeof(PosColourVertex);
+  bindingDescription.inputRate = vk::VertexInputRate::eVertex;
 
+  return bindingDescription;
+}
+
+std::vector<vk::VertexInputAttributeDescription> getAttribDesc() {
+  vk::VertexInputAttributeDescription Pos{};
+  Pos.binding = 0;
+  Pos.location = 0;
+  Pos.format = vk::Format::eR32G32Sfloat;
+  Pos.offset = offsetof(PosColourVertex, pos);
+
+  vk::VertexInputAttributeDescription Colour{};
+  Colour.binding = 0;
+  Colour.location = 1;
+  Colour.format = vk::Format::eR32G32B32Sfloat;
+  Colour.offset = offsetof(PosColourVertex, colour);
+
+  return {Pos, Colour};
+}
+vk::PresentModeKHR choosePresentMode(vk::PhysicalDevice &physicalDevice,
+                                     vk::SurfaceKHR surface) {
+  std::vector<vk::PresentModeKHR> modes =
+      physicalDevice.getSurfacePresentModesKHR(surface);
+  for (const auto &availablePresentMode : modes) {
+    if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
+      return availablePresentMode;
+    }
+  }
+
+  return vk::PresentModeKHR::eFifo;
+}
+vk::Extent2D chooseExtent(vk::PhysicalDevice &physicalDevice,
+                          vk::SurfaceKHR surface, SDL_Window *window) {
+
+  auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
+  // swapChainImageCount = capabilities.minImageCount + 1;
+
+  if (capabilities.currentExtent.width !=
+      std::numeric_limits<uint32_t>::max()) {
+    return capabilities.currentExtent;
+  } else {
+    int width, height;
+    SDL_GL_GetDrawableSize(window, &width, &height);
+
+    VkExtent2D actualExtent = {static_cast<uint32_t>(width),
+                               static_cast<uint32_t>(height)};
+
+    actualExtent.width =
+        std::clamp(actualExtent.width, capabilities.minImageExtent.width,
+                   capabilities.maxImageExtent.width);
+    actualExtent.height =
+        std::clamp(actualExtent.height, capabilities.minImageExtent.height,
+                   capabilities.maxImageExtent.height);
+
+    return actualExtent;
+  }
+} // namespace vividX
 } // namespace vividX

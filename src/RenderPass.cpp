@@ -21,6 +21,7 @@ RenderPass::RenderPass(vk::Device *dev, vk::SurfaceFormatKHR format)
   vk::AttachmentReference colorAttachmentRef{};
   colorAttachmentRef.attachment = 0;
   colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
+  
 
   vk::SubpassDescription subpass{};
   subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;

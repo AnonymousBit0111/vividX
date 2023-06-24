@@ -20,6 +20,8 @@ SwapChain::SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
       vividX::chooseFormat(physicalDevice, surface, graphicsQueueIndex);
   auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
 
+  m_extent.setHeight(size.x);
+  m_extent.setWidth(size.y);
   createInfo.imageFormat = format.format;
   createInfo.imageColorSpace = format.colorSpace;
   createInfo.minImageCount = capabilities.minImageCount + 1;

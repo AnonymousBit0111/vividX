@@ -23,6 +23,7 @@ public:
     p_device->freeMemory(m_memory);
   }
   vk::Buffer getBuffer() { return m_rawBuffer; }
+  vk::Buffer &getBufferRef() { return m_rawBuffer; }
 
   void update(const std::vector<PosColourVertex> &vertices);
   vk::DeviceMemory getMemory() { return m_memory; }

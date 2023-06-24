@@ -12,10 +12,21 @@
 #include <string>
 #include <vector>
 
+#define VK_FORMAT_VEC4 VK_FORMAT_R32G32B32A32_SFLOAT
+#define VK_FORMAT_XYZW VK_FORMAT_R32G32B32A32_SFLOAT
+#define VK_FORMAT_VEC3 VK_FORMAT_R32G32B32_SFLOAT
+#define VK_FORMAT_STP VK_FORMAT_R32G32B32_SFLOAT
+#define VK_FORMAT_XYZ VK_FORMAT_R32G32B32_SFLOAT
+#define VK_FORMAT_VEC2 VK_FORMAT_R32G32_SFLOAT
+#define VK_FORMAT_ST VK_FORMAT_R32G32_SFLOAT
+#define VK_FORMAT_XY VK_FORMAT_R32G32_SFLOAT
+#define VK_FORMAT_FLOAT VK_FORMAT_R32_SFLOAT
+#define VK_FORMAT_S VK_FORMAT_R32_SFLOAT
+#define VK_FORMAT_X VK_FORMAT_R32_SFLOAT
 namespace vividX {
 
 struct MeshPushConstants {
-  glm::vec4 data;
+  glm::vec4 data = {1,1,1,1};
   glm::mat4 render_matrix;
 };
 struct Vector3 {
@@ -77,4 +88,12 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 }
 uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties,
                         vk::PhysicalDevice &physicalDevice);
+
+std::vector<vk::VertexInputAttributeDescription> getAttribDesc();
+vk::VertexInputBindingDescription getBindingDescription();
+vk::PresentModeKHR choosePresentMode(vk::PhysicalDevice &physicalDevice,
+                                     vk::SurfaceKHR surface);
+vk::Extent2D chooseExtent(vk::PhysicalDevice &physicalDevice,
+                          vk::SurfaceKHR surface, SDL_Window *window);
+
 } // namespace vividX

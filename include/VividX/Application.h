@@ -1,5 +1,7 @@
 #pragma once
 
+#include "VividX/GraphicsPipeline.h"
+#include "VividX/PipelineLayout.h"
 #include "VividX/RenderPass.h"
 #include "VividX/SwapChain.h"
 #include "VividX/VertexBuffer.h"
@@ -31,9 +33,7 @@ private:
   vk::Extent2D swapChainExtent;
   uint32_t swapChainImageCount;
   vk::SwapchainKHR swapChain{};
-  std::vector<vk::Image> swapChainImages;
-  std::vector<vk::ImageView> swapChainImageViews;
-  std::vector<vk::Framebuffer> swapChainFrameBuffers;
+
   vk::CommandPool commandPool;
   vk::CommandBuffer commandBuffer;
   vk::RenderPassCreateInfo renderPassInfo{};
@@ -59,6 +59,8 @@ private:
   std::unique_ptr<vividX::RenderPass> m_Renderpass;
   std::unique_ptr<vividX::SwapChain> m_SwapChain;
   std::unique_ptr<vividX::VertexBuffer> m_vertexBuffer;
+  std::unique_ptr<vividX::PipelineLayout> m_PipelineLayout;
+  std::unique_ptr<vividX::GraphicsPipeline> m_graphicsPipeline;
 
   std::vector<vk::DescriptorPoolSize> poolSizes = {
       {vk::DescriptorType::eSampler, 1000},
@@ -93,9 +95,7 @@ private:
   void pickPhysicalDevice();
   void createLogicalDevice();
   vk::SurfaceFormatKHR chooseFormat();
-  vk::PresentModeKHR choosePresentMode();
   vk::Extent2D chooseExtent();
-  void createSwapChain();
   void createGraphicsPipeline();
 
   void createCommandPool();
@@ -110,8 +110,6 @@ private:
 
   void mainLoop();
   void cleanup();
-  static vk::VertexInputBindingDescription getBindingDescription();
-  static std::array<vk::VertexInputAttributeDescription, 2> getAttribDesc();
 
 public:
   void run();
