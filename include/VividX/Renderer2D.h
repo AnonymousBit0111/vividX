@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VividX/Camera2D.h"
 #include "VividX/GraphicsPipeline.h"
 #include "VividX/PipelineLayout.h"
 #include "VividX/RenderPass.h"
@@ -25,6 +26,7 @@ private:
   vk::CommandPool m_commandpool;
   vk::CommandBuffer m_commandBuffer;
   vk::Queue m_graphicsQueue;
+  vk::Queue m_presentQueue;
   vk::Fence m_inFlightFence;
   vk::Semaphore m_ImageAvailable;
   vk::Semaphore m_RenderFinished;
@@ -39,17 +41,25 @@ private:
   std::unique_ptr<vividX::PipelineLayout> m_PipelineLayout;
   std::unique_ptr<vividX::GraphicsPipeline> m_graphicsPipeline;
 
+  std::unique_ptr<Camera2D> camera;
+
 public:
   Renderer2D(vk::Instance instance, std::unique_ptr<vk::Device> device,
              vk::SurfaceKHR surface, vk::PhysicalDevice physicalDevice,
              std::map<std::string, std::optional<uint32_t>> queueFamilyIndices,
-             SDL_Window *window, vk::Queue graphicsQueue);
+             SDL_Window *window, vk::Queue graphicsQueue,
+             vk::Queue presentQueue);
 
   void recordCommandBuffer(uint32_t imageIndex);
+
+  vk::Device &getDevice() const { return *m_device; }
+  RenderPass &getRenderPass() const { return *m_Renderpass; }
+  SwapChain &getSwapChain() const { return *m_SwapChain; }
+  vk::CommandPool &getCommandPool() { return m_commandpool; }
   void beginFrame();
   void drawFrame();
   void endFrame();
 
-  ~Renderer2D();
+  ~Renderer2D() {}
 };
 } // namespace vividX

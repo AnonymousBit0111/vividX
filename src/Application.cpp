@@ -4,6 +4,7 @@
 #include "VividX/GraphicsPipeline.h"
 #include "VividX/PipelineLayout.h"
 #include "VividX/RenderPass.h"
+#include "VividX/Renderer2D.h"
 #include "VividX/SwapChain.h"
 #include "VividX/VertexBuffer.h"
 #include "VkBootstrap.h"
@@ -21,6 +22,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
 #include <_types/_uint32_t.h>
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cfloat>
@@ -81,59 +83,44 @@ void Application::initVulkan() {
   pickPhysicalDevice();
 
   createLogicalDevice();
-  swapChainSurfaceFormat = chooseFormat();
-  presentMode = choosePresentMode(physicalDevice, surface);
-  swapChainExtent = chooseExtent();
 
-  m_SwapChain = std::make_unique<vividX::SwapChain>(
-      physicalDevice, device.get(),
-      Vector2ui{swapChainExtent.width, swapChainExtent.height}, surface,
-      queueFamilyIndices["Graphics"].value(), vk::PresentModeKHR::eMailbox);
-
-  m_Renderpass = std::make_unique<vividX::RenderPass>(device.get(),
-                                                      swapChainSurfaceFormat);
-
-  m_SwapChain->createFrameBuffers(m_Renderpass.get());
-  createVertexBuffer();
-  createCommandPool();
-  createCommandBuffer();
-
-  createGraphicsPipeline();
-
-  createSyncObjects();
+  renderer = std::make_unique<Renderer2D>(instance, std::move(device), surface,
+                                          physicalDevice, queueFamilyIndices,
+                                          window, graphicsQueue, presentQueue);
 }
 
 void Application::initImGui() {
 
   ImGui::CreateContext();
-  ImGuiDescriptorPool = device->createDescriptorPool(poolInfo);
+  ImGuiDescriptorPool = renderer->getDevice().createDescriptorPool(poolInfo);
 
   ImGui_ImplVulkan_InitInfo initInfo{};
   initInfo.Allocator = nullptr;
   initInfo.Instance = instance;
-  initInfo.ImageCount = m_SwapChain->getImageCount();
+  initInfo.ImageCount = renderer->getSwapChain().getImageCount();
   initInfo.MinImageCount = 2;
   initInfo.Queue = graphicsQueue;
 
   initInfo.QueueFamily = queueFamilyIndices["Graphics"].value();
-  initInfo.Device = *device;
+  initInfo.Device = renderer->getDevice();
   initInfo.PhysicalDevice = physicalDevice;
   initInfo.CheckVkResultFn = nullptr;
   initInfo.DescriptorPool = ImGuiDescriptorPool;
   initInfo.PipelineCache = {};
 
   ImGui_ImplSDL2_InitForVulkan(window);
-  ImGui_ImplVulkan_Init(&initInfo, m_Renderpass->get());
+  ImGui_ImplVulkan_Init(&initInfo, renderer->getRenderPass().get());
 
   vk::CommandBufferAllocateInfo allocateInfo = {
-      commandPool,                      // Command pool
+      renderer->getCommandPool(),       // Command pool
       vk::CommandBufferLevel::ePrimary, // Command buffer level
       1                                 // Number of command buffers to allocate
   };
   vk::CommandBuffer tempBuffer;
 
-  vk::resultCheck(device->allocateCommandBuffers(&allocateInfo, &tempBuffer),
-                  "");
+  vk::resultCheck(
+      renderer->getDevice().allocateCommandBuffers(&allocateInfo, &tempBuffer),
+      "");
 
   vk::CommandBufferBeginInfo beginInfo = {
       vk::CommandBufferUsageFlagBits::eOneTimeSubmit, // Flags
@@ -277,7 +264,7 @@ void Application::mainLoop() {
 
     SDL_UpdateWindowSurface(window);
   }
-  device->waitIdle();
+  renderer->getDevice().waitIdle();
 }
 
 void Application::pickPhysicalDevice() {
@@ -533,86 +520,85 @@ void Application::recordCommandBuffer(uint32_t imageIndex) {
 
 void Application::drawFrame() {
 
-  auto res =
-      device->waitForFences(1, &inFlightfence, vk::Bool32(true), UINT64_MAX);
-  vk::resultCheck(res, "waitForfences failed");
+  // auto res =
+  //     device->waitForFences(1, &inFlightfence, vk::Bool32(true), UINT64_MAX);
+  // vk::resultCheck(res, "waitForfences failed");
 
-  res = device->resetFences(1, &inFlightfence);
-  vk::resultCheck(res, "resetFences failed");
-  ImGui_ImplVulkan_NewFrame();
-  ImGui_ImplSDL2_NewFrame();
-  ImGui::NewFrame();
+  // res = device->resetFences(1, &inFlightfence);
+  // vk::resultCheck(res, "resetFences failed");
+  // ImGui_ImplVulkan_NewFrame();
+  // ImGui_ImplSDL2_NewFrame();
+  // ImGui::NewFrame();
 
-  ImGui::ShowDemoWindow();
+  // ImGui::ShowDemoWindow();
 
-  vk::AcquireNextImageInfoKHR info;
-  info.swapchain = swapChain;
-  info.semaphore = imageAvailableSeph;
-  info.timeout = UINT64_MAX;
+  // vk::AcquireNextImageInfoKHR info;
+  // info.swapchain = swapChain;
+  // info.semaphore = imageAvailableSeph;
+  // info.timeout = UINT64_MAX;
 
-  auto imageIndex = device->acquireNextImageKHR(m_SwapChain->get(), UINT64_MAX,
-                                                imageAvailableSeph);
+  // auto imageIndex = device->acquireNextImageKHR(m_SwapChain->get(),
+  // UINT64_MAX,
+  //                                               imageAvailableSeph);
 
-  vk::resultCheck(imageIndex.result, "");
+  // vk::resultCheck(imageIndex.result, "");
 
-  commandBuffer.reset();
-  recordCommandBuffer(imageIndex.value);
+  // commandBuffer.reset();
+  // recordCommandBuffer(imageIndex.value);
 
-  vk::SubmitInfo submitInfo{};
+  // vk::SubmitInfo submitInfo{};
 
-  vk::Semaphore waitSemaphores[] = {imageAvailableSeph};
+  // vk::Semaphore waitSemaphores[] = {imageAvailableSeph};
 
-  vk::PipelineStageFlags waitStages[] = {
-      vk::PipelineStageFlagBits::eColorAttachmentOutput};
-  submitInfo.waitSemaphoreCount = 1;
-  submitInfo.pWaitSemaphores = waitSemaphores;
-  submitInfo.pWaitDstStageMask = waitStages;
+  // vk::PipelineStageFlags waitStages[] = {
+  //     vk::PipelineStageFlagBits::eColorAttachmentOutput};
+  // submitInfo.waitSemaphoreCount = 1;
+  // submitInfo.pWaitSemaphores = waitSemaphores;
+  // submitInfo.pWaitDstStageMask = waitStages;
 
-  submitInfo.commandBufferCount = 1;
-  submitInfo.pCommandBuffers = &commandBuffer;
+  // submitInfo.commandBufferCount = 1;
+  // submitInfo.pCommandBuffers = &commandBuffer;
 
-  vk::Semaphore signalSephamores[] = {renderFinishedSeph};
-  submitInfo.signalSemaphoreCount = 1;
-  submitInfo.pSignalSemaphores = signalSephamores;
+  // vk::Semaphore signalSephamores[] = {renderFinishedSeph};
+  // submitInfo.signalSemaphoreCount = 1;
+  // submitInfo.pSignalSemaphores = signalSephamores;
 
-  res = graphicsQueue.submit(1, &submitInfo, inFlightfence);
-  assert(res == vk::Result::eSuccess);
+  // res = graphicsQueue.submit(1, &submitInfo, inFlightfence);
+  // assert(res == vk::Result::eSuccess);
 
-  vk::SubpassDependency dep{};
-  dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-  dep.dstSubpass = 0;
+  // vk::SubpassDependency dep{};
+  // dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+  // dep.dstSubpass = 0;
 
-  dep.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+  // dep.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
-  dep.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-  dep.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+  // dep.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+  // dep.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
 
+  // vk::PresentInfoKHR presentInfo{};
 
+  // vk::SwapchainKHR swapChains[] = {m_SwapChain->get()};
 
-  vk::PresentInfoKHR presentInfo{};
+  // presentInfo.waitSemaphoreCount = 1;
+  // presentInfo.pWaitSemaphores = signalSephamores;
+  // presentInfo.swapchainCount = 1;
+  // presentInfo.pSwapchains = swapChains;
+  // presentInfo.pImageIndices = &imageIndex.value;
+  // presentInfo.pResults = nullptr;
+  // res = presentQueue.presentKHR(&presentInfo);
+  // assert(res == vk::Result::eSuccess);
 
-  vk::SwapchainKHR swapChains[] = {m_SwapChain->get()};
+  renderer->beginFrame();
 
-  presentInfo.waitSemaphoreCount = 1;
-  presentInfo.pWaitSemaphores = signalSephamores;
-  presentInfo.swapchainCount = 1;
-  presentInfo.pSwapchains = swapChains;
-  presentInfo.pImageIndices = &imageIndex.value;
-  presentInfo.pResults = nullptr;
-  res = presentQueue.presentKHR(&presentInfo);
-  assert(res == vk::Result::eSuccess);
+  renderer->drawFrame();
+
+  renderer->endFrame();
 }
 void Application::cleanup() {
 
   ImGui_ImplVulkan_Shutdown();
 
 
-  device->destroyFence(inFlightfence);
-  device->destroySemaphore(renderFinishedSeph);
-  device->destroySemaphore(imageAvailableSeph);
-
-  device->destroyCommandPool(commandPool);
-  device->destroyDescriptorPool(ImGuiDescriptorPool);
 
   SDL_DestroyWindow(window);
   SDL_Quit();

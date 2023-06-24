@@ -3,6 +3,7 @@
 #include "VividX/GraphicsPipeline.h"
 #include "VividX/PipelineLayout.h"
 #include "VividX/RenderPass.h"
+#include "VividX/Renderer2D.h"
 #include "VividX/SwapChain.h"
 #include "VividX/VertexBuffer.h"
 #include "vividx.h"
@@ -45,9 +46,7 @@ private:
   vk::DeviceMemory vertexBufferMemory;
   vk::RenderPass renderPass;
 
-  vk::PipelineLayout pipelineLayout;
 
-  vk::Pipeline graphicsPipeline;
 
   vk::Semaphore imageAvailableSeph;
   vk::Semaphore renderFinishedSeph;
@@ -85,6 +84,7 @@ private:
   vk::DescriptorPool ImGuiDescriptorPool;
 
   Camera2D cam;
+  std::unique_ptr<Renderer2D> renderer;
 
   void initSDL();
   void initVulkan();

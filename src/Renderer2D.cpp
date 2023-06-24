@@ -1,4 +1,6 @@
 #include "VividX/Renderer2D.h"
+#include "glm/ext/vector_float4.hpp"
+#include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
 #include "vividx.h"
@@ -7,6 +9,7 @@
 #include "vulkan/vulkan_handles.hpp"
 #include "vulkan/vulkan_structs.hpp"
 #include <cassert>
+#include <memory>
 #include <utility>
 
 using namespace vividX;
@@ -15,11 +18,13 @@ Renderer2D::Renderer2D(
     vk::Instance instance, std::unique_ptr<vk::Device> device,
     vk::SurfaceKHR surface, vk::PhysicalDevice physicalDevice,
     std::map<std::string, std::optional<uint32_t>> queueFamilyIndices,
-    SDL_Window *window, vk::Queue graphicsQueue)
+    SDL_Window *window, vk::Queue graphicsQueue, vk::Queue presentQueue)
 
     : m_instance(instance), m_device(std::move(device)), m_surface(surface),
       m_physicalDevice(physicalDevice),
-      m_queueFamilyIndices(queueFamilyIndices), m_graphicsQueue(graphicsQueue) {
+      m_queueFamilyIndices(queueFamilyIndices), m_graphicsQueue(graphicsQueue),
+      m_presentQueue(presentQueue) {
+
   vk::SurfaceFormatKHR swapchainSurfaceFormat = vividX::chooseFormat(
       physicalDevice, surface, m_queueFamilyIndices["Graphics"].value());
 
@@ -30,17 +35,21 @@ Renderer2D::Renderer2D(
       vividX::chooseExtent(physicalDevice, surface, window);
 
   m_SwapChain = std::make_unique<vividX::SwapChain>(
-      physicalDevice, device.get(),
+      physicalDevice, m_device.get(),
       Vector2ui{swapChainExtent.width, swapChainExtent.height}, surface,
       queueFamilyIndices["Graphics"].value(), vk::PresentModeKHR::eMailbox);
 
-  m_Renderpass = std::make_unique<vividX::RenderPass>(device.get(),
+  m_Renderpass = std::make_unique<vividX::RenderPass>(m_device.get(),
                                                       swapchainSurfaceFormat);
 
   m_SwapChain->createFrameBuffers(m_Renderpass.get());
 
+  vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
+              {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
+              {{0.f, 100.5f}, {0.0f, 0.0f, 1.0f}}};
+
   m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(
-      device.get(), sizeof(vertices[0]) * vertices.size(), physicalDevice);
+      m_device.get(), sizeof(vertices[0]) * vertices.size(), physicalDevice);
 
   m_vertexBuffer->update(vertices);
 
@@ -48,7 +57,7 @@ Renderer2D::Renderer2D(
   poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
   poolInfo.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
 
-  assert(device->createCommandPool(&poolInfo, nullptr, &m_commandpool) ==
+  assert(m_device->createCommandPool(&poolInfo, nullptr, &m_commandpool) ==
          vk::Result::eSuccess);
 
   vk::CommandBufferAllocateInfo info{};
@@ -56,10 +65,10 @@ Renderer2D::Renderer2D(
   info.level = vk::CommandBufferLevel::ePrimary;
   info.commandBufferCount = 1;
 
-  assert(device->allocateCommandBuffers(&info, &m_commandBuffer) ==
+  assert(m_device->allocateCommandBuffers(&info, &m_commandBuffer) ==
          vk::Result::eSuccess);
 
-  m_PipelineLayout = std::make_unique<PipelineLayout>(device.get());
+  m_PipelineLayout = std::make_unique<PipelineLayout>(m_device.get());
 
   vk::PushConstantRange pushConstantRange{
 
@@ -72,8 +81,8 @@ Renderer2D::Renderer2D(
   m_PipelineLayout->addPushConstantRange(pushConstantRange);
 
   m_graphicsPipeline = std::make_unique<GraphicsPipeline>(
-      "shaders/frag.spv", "shaders/vert.spv", device.get(), m_Renderpass->get(),
-      m_PipelineLayout->get(),
+      "shaders/frag.spv", "shaders/vert.spv", m_device.get(),
+      m_Renderpass->get(), m_PipelineLayout->get(),
       Vector2{(float)swapChainExtent.width, (float)swapChainExtent.height});
 
   vk::SemaphoreCreateInfo sephInfo{};
@@ -81,14 +90,16 @@ Renderer2D::Renderer2D(
   fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
   vk::resultCheck(
-      device->createSemaphore(&sephInfo, nullptr, &m_ImageAvailable),
+      m_device->createSemaphore(&sephInfo, nullptr, &m_ImageAvailable),
       "failed to create imageSemaphore");
   vk::resultCheck(
-      device->createSemaphore(&sephInfo, nullptr, &m_RenderFinished),
+      m_device->createSemaphore(&sephInfo, nullptr, &m_RenderFinished),
       "Failed to create renderfinished semaphore");
 
-  vk::resultCheck(device->createFence(&fenceInfo, nullptr, &m_inFlightFence),
+  vk::resultCheck(m_device->createFence(&fenceInfo, nullptr, &m_inFlightFence),
                   "failed to create inFlight fence");
+
+  camera = std::make_unique<Camera2D>(100, 100);
 }
 
 void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
@@ -117,6 +128,12 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
                                m_graphicsPipeline->get());
 
   // TODO pushConstants
+  MeshPushConstants pushconstants;
+  pushconstants.data = glm::vec4(1.0f);
+  pushconstants.render_matrix = camera->getViewProjMatrix();
+  m_commandBuffer.pushConstants(m_PipelineLayout->get(),
+                                vk::ShaderStageFlagBits::eVertex, 0,
+                                sizeof(pushconstants), &pushconstants);
 
   vk::DeviceSize offsets = {0};
 
@@ -124,7 +141,7 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
                                     &offsets);
 
   m_commandBuffer.draw(vertices.size(), 1, 0, 0);
-
+  ImGui::ShowDebugLogWindow();
   ImGui::Render();
   auto draw_data = ImGui::GetDrawData();
 
@@ -205,7 +222,7 @@ void Renderer2D::drawFrame() {
   presentInfo.pSwapchains = swapChains;
   presentInfo.pImageIndices = &imageIndex.value;
   presentInfo.pResults = nullptr;
-  //   res = m_presentQueue.presentKHR(&presentInfo);
+  res = m_presentQueue.presentKHR(&presentInfo);
   assert(res == vk::Result::eSuccess);
 }
 
