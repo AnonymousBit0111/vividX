@@ -23,17 +23,8 @@ namespace vividX {
 class Application {
 private:
   SDL_Window *window;
-  vk::Instance instance;
   std::vector<const char *> validationLayers;
   VkDebugUtilsMessengerEXT debugMessenger;
-  vk::SurfaceKHR surface;
-  vk::PhysicalDevice physicalDevice;
-  vk::Queue graphicsQueue;
-  vk::Queue presentQueue;
-  vk::SurfaceFormatKHR swapChainSurfaceFormat;
-  vk::Extent2D swapChainExtent;
-  uint32_t swapChainImageCount;
-  vk::SwapchainKHR swapChain{};
 
   vk::CommandPool commandPool;
   vk::CommandBuffer commandBuffer;
@@ -46,18 +37,7 @@ private:
   vk::DeviceMemory vertexBufferMemory;
   vk::RenderPass renderPass;
 
-  vk::Semaphore imageAvailableSeph;
-  vk::Semaphore renderFinishedSeph;
-  vk::Fence inFlightfence;
-  vk::Buffer vertexBuffer;
-  vk::Device device;
   vk::DescriptorPool descPool;
-
-  std::unique_ptr<vividX::RenderPass> m_Renderpass;
-  std::unique_ptr<vividX::SwapChain> m_SwapChain;
-  std::unique_ptr<vividX::VertexBuffer> m_vertexBuffer;
-  std::unique_ptr<vividX::PipelineLayout> m_PipelineLayout;
-  std::unique_ptr<vividX::GraphicsPipeline> m_graphicsPipeline;
 
   std::vector<vk::DescriptorPoolSize> poolSizes = {
       {vk::DescriptorType::eSampler, 1000},
