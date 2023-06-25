@@ -11,14 +11,13 @@ namespace vividX {
 class GraphicsPipeline {
 
 private:
-  vk::Device *p_device = nullptr;
+
   vk::VertexInputBindingDescription m_bindingDesc;
   std::vector<vk::VertexInputAttributeDescription> m_attributeDescriptions;
   vk::Pipeline m_graphicsPipeline;
 
 public:
   GraphicsPipeline(const std::string &fsPath, const std::string &vsPath,
-                   vk::Device *device,
                    vk::RenderPass rp, vk::PipelineLayout pipelineLayout,
                    vividX::Vector2 size);
 

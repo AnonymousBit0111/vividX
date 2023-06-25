@@ -1,4 +1,5 @@
 #include "VividX/SwapChain.h"
+#include "VividX/Globals.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_handles.hpp"
@@ -7,18 +8,16 @@
 
 using namespace vividX;
 
-SwapChain::SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
-                     Vector2ui size, vk::SurfaceKHR surface,
-                     uint32_t graphicsQueueIndex,
-
-                     vk::PresentModeKHR presentmode,
+SwapChain::SwapChain(Vector2ui size, vk::PresentModeKHR presentmode,
                      vk::SwapchainKHR oldSwapchain)
-    : p_logicalDevice(device), m_imageSize(size) {
+    : m_imageSize(size) {
   vk::SwapchainCreateInfoKHR createInfo{};
 
   auto format =
-      vividX::chooseFormat(physicalDevice, surface, graphicsQueueIndex);
-  auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
+      vividX::chooseFormat(g_vkContext->physicalDevice, g_vkContext->surface,
+                           g_vkContext->queueFamilyIndices["Graphics"].value());
+  auto capabilities = g_vkContext->physicalDevice.getSurfaceCapabilitiesKHR(
+      g_vkContext->surface);
 
   m_extent.setHeight(size.y);
   m_extent.setWidth(size.x);
@@ -31,17 +30,19 @@ SwapChain::SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
   createInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
   createInfo.presentMode = presentmode;
   createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-  createInfo.preTransform =
-      physicalDevice.getSurfaceCapabilitiesKHR(surface).currentTransform;
+  createInfo.preTransform = g_vkContext->physicalDevice
+                                .getSurfaceCapabilitiesKHR(g_vkContext->surface)
+                                .currentTransform;
 
   createInfo.clipped = 1;
-  createInfo.surface = surface;
+  createInfo.surface = g_vkContext->surface;
   createInfo.oldSwapchain = oldSwapchain;
 
-  vk::resultCheck(
-      device->createSwapchainKHR(&createInfo, nullptr, &m_rawSwapChain), "");
+  vk::resultCheck(g_vkContext->device.createSwapchainKHR(&createInfo, nullptr,
+                                                         &m_rawSwapChain),
+                  "");
 
-  m_images = device->getSwapchainImagesKHR(m_rawSwapChain);
+  m_images = g_vkContext->device.getSwapchainImagesKHR(m_rawSwapChain);
 
   m_imageViews.resize(m_images.size());
 
@@ -63,8 +64,8 @@ SwapChain::SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
     info.subresourceRange.levelCount = 1;
     info.subresourceRange.baseArrayLayer = 0;
     info.subresourceRange.layerCount = 1;
-    vk::Result res =
-        device->createImageView(&info, nullptr, &m_imageViews[index]);
+    vk::Result res = g_vkContext->device.createImageView(&info, nullptr,
+                                                         &m_imageViews[index]);
     if (res != vk::Result::eSuccess) {
       assert(false);
     }
@@ -84,12 +85,12 @@ void SwapChain::createFrameBuffers(RenderPass *renderpass) {
     frameBufferInfo.width = m_imageSize.x;
     frameBufferInfo.height = m_imageSize.y;
     frameBufferInfo.layers = 1;
-    vk::resultCheck(p_logicalDevice->createFramebuffer(
+    vk::resultCheck(g_vkContext->device.createFramebuffer(
                         &frameBufferInfo, nullptr, &m_framebuffers[i]),
                     "");
   }
 }
 SwapChain::~SwapChain() {
 
-  p_logicalDevice->destroySwapchainKHR(m_rawSwapChain);
+  g_vkContext->device.destroySwapchainKHR(m_rawSwapChain);
 }

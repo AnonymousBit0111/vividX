@@ -5,7 +5,6 @@ namespace vividX {
 class PipelineLayout {
 
 private:
-  vk::Device *p_device;
   vk::PipelineLayout m_pipelineLayout;
   std::vector<vk::DescriptorSetLayout> m_descriptorSetLayouts;
   std::vector<vk::PushConstantRange> m_pushConstantRanges;
@@ -14,7 +13,7 @@ private:
   void recreate();
 
 public:
-  PipelineLayout(vk::Device *device);
+  PipelineLayout();
   ~PipelineLayout();
 
   void

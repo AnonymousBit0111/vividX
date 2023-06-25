@@ -1,4 +1,5 @@
 #include "VividX/GraphicsPipeline.h"
+#include "VividX/Globals.h"
 #include "VividX/PipelineLayout.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
@@ -8,16 +9,16 @@
 #include <cassert>
 using namespace vividX;
 GraphicsPipeline::GraphicsPipeline(const std::string &fsPath,
-                                   const std::string &vsPath,
-                                   vk::Device *device, vk::RenderPass rp,
+                                   const std::string &vsPath, vk::RenderPass rp,
                                    vk::PipelineLayout layout,
-                                   Vector2 viewportSize)
-    : p_device(device) {
+                                   Vector2 viewportSize) {
 
   auto vertShaderCode = readFile(vsPath);
   auto fragShaderCode = readFile(fsPath);
-  vk::ShaderModule fragModule = createShaderModule(fragShaderCode, *device);
-  vk::ShaderModule vertModule = createShaderModule(vertShaderCode, *device);
+  vk::ShaderModule fragModule =
+      createShaderModule(fragShaderCode, g_vkContext->device);
+  vk::ShaderModule vertModule =
+      createShaderModule(vertShaderCode, g_vkContext->device);
 
   vk::PipelineShaderStageCreateInfo vertStageCreateInfo{};
   vertStageCreateInfo.stage = vk::ShaderStageFlagBits::eVertex;
@@ -130,15 +131,15 @@ GraphicsPipeline::GraphicsPipeline(const std::string &fsPath,
 
   pipelineCreateInfo.renderPass = rp;
 
-  vk::Result res = device->createGraphicsPipelines(
+  vk::Result res = g_vkContext->device.createGraphicsPipelines(
       VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &m_graphicsPipeline);
 
   vk::resultCheck(res, "failed");
 
-  device->destroyShaderModule(fragModule);
-  device->destroyShaderModule(vertModule);
+  g_vkContext->device.destroyShaderModule(fragModule);
+  g_vkContext->device.destroyShaderModule(vertModule);
 }
 
 GraphicsPipeline::~GraphicsPipeline() {
-  p_device->destroyPipeline(m_graphicsPipeline);
+  g_vkContext->device.destroyPipeline(m_graphicsPipeline);
 }

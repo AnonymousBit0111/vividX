@@ -17,8 +17,7 @@ private:
   vk::SwapchainKHR m_rawSwapChain;
   vk::SurfaceFormatKHR m_format;
 
-  vk::Device *p_logicalDevice; // all objects must have a shorter lifetime than
-  // the logical device
+
 
   std::vector<vk::Image> m_images;
   std::vector<vk::ImageView> m_imageViews;
@@ -28,9 +27,7 @@ private:
   vk::Extent2D m_extent;
 
 public:
-  SwapChain(vk::PhysicalDevice &physicalDevice, vk::Device *device,
-            Vector2ui size, vk::SurfaceKHR surface, uint32_t graphicsQueueIndex,
-            vk::PresentModeKHR presentmode = vk::PresentModeKHR::eFifo,
+  SwapChain(Vector2ui size,vk::PresentModeKHR presentmode = vk::PresentModeKHR::eFifo,
             vk::SwapchainKHR oldSwapchain = {});
 
   void createFrameBuffers(RenderPass *renderpass);
@@ -42,8 +39,7 @@ public:
   }
   uint32_t getImageCount() { return m_images.size(); }
 
-  vk::Extent2D getExtent(){return m_extent;}
-
+  vk::Extent2D getExtent() { return m_extent; }
 
   ~SwapChain();
 };

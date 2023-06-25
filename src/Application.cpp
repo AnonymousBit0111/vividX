@@ -1,11 +1,13 @@
 #include "VividX/Application.h"
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
+#include "VividX/Globals.h"
 #include "VividX/GraphicsPipeline.h"
 #include "VividX/PipelineLayout.h"
 #include "VividX/RenderPass.h"
 #include "VividX/Renderer2D.h"
 #include "VividX/SwapChain.h"
+#include "VividX/VKContext.h"
 #include "VividX/VertexBuffer.h"
 #include "VkBootstrap.h"
 #include "glm/ext/matrix_clip_space.hpp"
@@ -42,8 +44,8 @@ const int WIDTH = 800;
 const int HEIGHT = 600;
 
 using namespace vividX;
-// TODO change sephamore to semaphore
 
+std::shared_ptr<vividX::VKContext> vividX::g_vkContext = nullptr;
 Application::Application()
 
     : cam(Vector2{1600, 900}) {}
@@ -84,15 +86,23 @@ void Application::initVulkan() {
 
   createLogicalDevice();
 
-  renderer = std::make_unique<Renderer2D>(instance, std::move(device), surface,
-                                          physicalDevice, queueFamilyIndices,
-                                          window, graphicsQueue, presentQueue);
+  g_vkContext = std::make_shared<VKContext>();
+
+  g_vkContext->device = device;
+  g_vkContext->physicalDevice = physicalDevice;
+  g_vkContext->graphicsQueue = graphicsQueue;
+  g_vkContext->surface = surface;
+  g_vkContext->instance = instance;
+  g_vkContext->presentQueue = presentQueue;
+  g_vkContext->queueFamilyIndices = queueFamilyIndices;
+
+  renderer = std::make_unique<Renderer2D>(window);
 }
 
 void Application::initImGui() {
 
   ImGui::CreateContext();
-  ImGuiDescriptorPool = renderer->getDevice().createDescriptorPool(poolInfo);
+  ImGuiDescriptorPool = g_vkContext->device.createDescriptorPool(poolInfo);
 
   ImGui_ImplVulkan_InitInfo initInfo{};
   initInfo.Allocator = nullptr;
@@ -102,7 +112,7 @@ void Application::initImGui() {
   initInfo.Queue = graphicsQueue;
 
   initInfo.QueueFamily = queueFamilyIndices["Graphics"].value();
-  initInfo.Device = renderer->getDevice();
+  initInfo.Device = g_vkContext->device;
   initInfo.PhysicalDevice = physicalDevice;
   initInfo.CheckVkResultFn = nullptr;
   initInfo.DescriptorPool = ImGuiDescriptorPool;
@@ -119,7 +129,7 @@ void Application::initImGui() {
   vk::CommandBuffer tempBuffer;
 
   vk::resultCheck(
-      renderer->getDevice().allocateCommandBuffers(&allocateInfo, &tempBuffer),
+      g_vkContext->device.allocateCommandBuffers(&allocateInfo, &tempBuffer),
       "");
 
   vk::CommandBufferBeginInfo beginInfo = {
@@ -264,7 +274,7 @@ void Application::mainLoop() {
 
     SDL_UpdateWindowSurface(window);
   }
-  renderer->getDevice().waitIdle();
+  g_vkContext->device.waitIdle();
 }
 
 void Application::pickPhysicalDevice() {
@@ -349,12 +359,11 @@ void Application::createLogicalDevice() {
   createInfo.pQueueCreateInfos = &queueCreateInfo;
   createInfo.pEnabledFeatures = &deviceFeatures;
 
-  device =
-      std::make_unique<vk::Device>(physicalDevice.createDevice(createInfo));
+  device = physicalDevice.createDevice(createInfo);
   log("succesfully created logical device", Severity::INFO);
 
-  graphicsQueue = device->getQueue(queueFamilyIndices["Graphics"].value(), 0);
-  presentQueue = device->getQueue(queueFamilyIndices["Present"].value(), 0);
+  graphicsQueue = device.getQueue(queueFamilyIndices["Graphics"].value(), 0);
+  presentQueue = device.getQueue(queueFamilyIndices["Present"].value(), 0);
 }
 
 vk::SurfaceFormatKHR Application::chooseFormat() {
@@ -406,50 +415,13 @@ vk::Extent2D Application::chooseExtent() {
   }
 }
 
-void Application::createGraphicsPipeline() {
-
-  m_PipelineLayout = std::make_unique<PipelineLayout>(device.get());
-
-  vk::PushConstantRange pushConstantRange{
-
-  };
-  pushConstantRange.offset = 0;
-
-  pushConstantRange.size = sizeof(MeshPushConstants);
-  pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eVertex;
-
-  m_PipelineLayout->addPushConstantRange(pushConstantRange);
-
-  m_graphicsPipeline = std::make_unique<GraphicsPipeline>(
-      "shaders/frag.spv", "shaders/vert.spv", device.get(), m_Renderpass->get(),
-      m_PipelineLayout->get(),
-      Vector2{(float)swapChainExtent.width, (float)swapChainExtent.height});
-}
-
-void Application::createCommandPool() {
-  vk::CommandPoolCreateInfo poolInfo{};
-  poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-  poolInfo.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
-
-  assert(device->createCommandPool(&poolInfo, nullptr, &commandPool) ==
-         vk::Result::eSuccess);
-}
-
-void Application::createVertexBuffer() {
-
-  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(
-      device.get(), sizeof(vertices[0]) * vertices.size(), physicalDevice);
-
-  m_vertexBuffer->update(vertices);
-}
-
 void Application::createCommandBuffer() {
   vk::CommandBufferAllocateInfo info{};
   info.commandPool = commandPool;
   info.level = vk::CommandBufferLevel::ePrimary;
   info.commandBufferCount = 1;
 
-  assert(device->allocateCommandBuffers(&info, &commandBuffer) ==
+  assert(device.allocateCommandBuffers(&info, &commandBuffer) ==
          vk::Result::eSuccess);
 }
 
@@ -459,13 +431,13 @@ void Application::createSyncObjects() {
   fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
   vk::resultCheck(
-      device->createSemaphore(&sephInfo, nullptr, &imageAvailableSeph),
+      device.createSemaphore(&sephInfo, nullptr, &imageAvailableSeph),
       "failed to create imageSemaphore");
   vk::resultCheck(
-      device->createSemaphore(&sephInfo, nullptr, &renderFinishedSeph),
+      device.createSemaphore(&sephInfo, nullptr, &renderFinishedSeph),
       "Failed to create renderfinished semaphore");
 
-  vk::resultCheck(device->createFence(&fenceInfo, nullptr, &inFlightfence),
+  vk::resultCheck(device.createFence(&fenceInfo, nullptr, &inFlightfence),
                   "failed to create inFlight fence");
 }
 static glm::vec4 colour = {1, 1, 1, 1.0f};
@@ -597,8 +569,6 @@ void Application::drawFrame() {
 void Application::cleanup() {
 
   ImGui_ImplVulkan_Shutdown();
-
-
 
   SDL_DestroyWindow(window);
   SDL_Quit();

@@ -1,12 +1,12 @@
 
 
 #include "VividX/RenderPass.h"
+#include "VividX/Globals.h"
 #include "vulkan/vulkan_handles.hpp"
 #include "vulkan/vulkan_structs.hpp"
 #include <memory>
 using namespace vividX;
-RenderPass::RenderPass(vk::Device *dev, vk::SurfaceFormatKHR format)
-:p_device(dev) {
+RenderPass::RenderPass(vk::SurfaceFormatKHR format) {
 
   vk::RenderPassCreateInfo Info{};
   vk::AttachmentDescription colourAttachment{};
@@ -21,7 +21,6 @@ RenderPass::RenderPass(vk::Device *dev, vk::SurfaceFormatKHR format)
   vk::AttachmentReference colorAttachmentRef{};
   colorAttachmentRef.attachment = 0;
   colorAttachmentRef.layout = vk::ImageLayout::eColorAttachmentOptimal;
-  
 
   vk::SubpassDescription subpass{};
   subpass.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
@@ -35,7 +34,8 @@ RenderPass::RenderPass(vk::Device *dev, vk::SurfaceFormatKHR format)
 
   vk::RenderPass temp;
 
-  auto res = dev->createRenderPass(&Info, nullptr, &m_renderPass);
+  auto res =
+      g_vkContext->device.createRenderPass(&Info, nullptr, &m_renderPass);
 
   vk::resultCheck(res, "error, renderPass creation failed");
 }

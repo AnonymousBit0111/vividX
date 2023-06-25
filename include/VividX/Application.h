@@ -46,13 +46,11 @@ private:
   vk::DeviceMemory vertexBufferMemory;
   vk::RenderPass renderPass;
 
-
-
   vk::Semaphore imageAvailableSeph;
   vk::Semaphore renderFinishedSeph;
   vk::Fence inFlightfence;
   vk::Buffer vertexBuffer;
-  std::unique_ptr<vk::Device> device;
+  vk::Device device;
   vk::DescriptorPool descPool;
 
   std::unique_ptr<vividX::RenderPass> m_Renderpass;

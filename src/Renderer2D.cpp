@@ -1,4 +1,6 @@
 #include "VividX/Renderer2D.h"
+#include "VividX/Globals.h"
+#include "VividX/VKContext.h"
 #include "glm/ext/vector_float4.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -8,39 +10,32 @@
 #include "vulkan/vulkan_enums.hpp"
 #include "vulkan/vulkan_handles.hpp"
 #include "vulkan/vulkan_structs.hpp"
+#include <SDL_video.h>
 #include <cassert>
 #include <memory>
 #include <utility>
 
 using namespace vividX;
 
-Renderer2D::Renderer2D(
-    vk::Instance instance, std::unique_ptr<vk::Device> device,
-    vk::SurfaceKHR surface, vk::PhysicalDevice physicalDevice,
-    std::map<std::string, std::optional<uint32_t>> queueFamilyIndices,
-    SDL_Window *window, vk::Queue graphicsQueue, vk::Queue presentQueue)
+Renderer2D::Renderer2D(SDL_Window *window)
 
-    : m_instance(instance), m_device(std::move(device)), m_surface(surface),
-      m_physicalDevice(physicalDevice),
-      m_queueFamilyIndices(queueFamilyIndices), m_graphicsQueue(graphicsQueue),
-      m_presentQueue(presentQueue) {
+{
 
-  vk::SurfaceFormatKHR swapchainSurfaceFormat = vividX::chooseFormat(
-      physicalDevice, surface, m_queueFamilyIndices["Graphics"].value());
+  vk::SurfaceFormatKHR swapchainSurfaceFormat =
+      vividX::chooseFormat(g_vkContext->physicalDevice, g_vkContext->surface,
+                           g_vkContext->queueFamilyIndices["Graphics"].value());
 
-  vk::PresentModeKHR presentMode =
-      vividX::choosePresentMode(physicalDevice, surface);
+  vk::PresentModeKHR presentMode = vividX::choosePresentMode(
+      g_vkContext->physicalDevice, g_vkContext->surface);
 
-  vk::Extent2D swapChainExtent =
-      vividX::chooseExtent(physicalDevice, surface, window);
+  vk::Extent2D swapChainExtent = vividX::chooseExtent(
+      g_vkContext->physicalDevice, g_vkContext->surface, window);
 
   m_SwapChain = std::make_unique<vividX::SwapChain>(
-      physicalDevice, m_device.get(),
-      Vector2ui{swapChainExtent.width, swapChainExtent.height}, surface,
-      queueFamilyIndices["Graphics"].value(), vk::PresentModeKHR::eMailbox);
+      Vector2ui{swapChainExtent.width, swapChainExtent.height},
+      vk::PresentModeKHR::eMailbox);
 
-  m_Renderpass = std::make_unique<vividX::RenderPass>(m_device.get(),
-                                                      swapchainSurfaceFormat);
+  m_Renderpass = std::make_unique<vividX::RenderPass>(swapchainSurfaceFormat);
 
   m_SwapChain->createFrameBuffers(m_Renderpass.get());
 
@@ -48,27 +43,28 @@ Renderer2D::Renderer2D(
               {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
               {{0.f, 100.5f}, {0.0f, 0.0f, 1.0f}}};
 
-  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(
-      m_device.get(), sizeof(vertices[0]) * vertices.size(), physicalDevice);
+  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(sizeof(vertices[0]) *
+                                                          vertices.size());
 
   m_vertexBuffer->update(vertices);
 
   vk::CommandPoolCreateInfo poolInfo{};
   poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
-  poolInfo.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
+  poolInfo.queueFamilyIndex =
+      g_vkContext->queueFamilyIndices["Graphics"].value();
 
-  assert(m_device->createCommandPool(&poolInfo, nullptr, &m_commandpool) ==
-         vk::Result::eSuccess);
+  assert(g_vkContext->device.createCommandPool(
+             &poolInfo, nullptr, &m_commandpool) == vk::Result::eSuccess);
 
   vk::CommandBufferAllocateInfo info{};
   info.commandPool = m_commandpool;
   info.level = vk::CommandBufferLevel::ePrimary;
   info.commandBufferCount = 1;
 
-  assert(m_device->allocateCommandBuffers(&info, &m_commandBuffer) ==
+  assert(g_vkContext->device.allocateCommandBuffers(&info, &m_commandBuffer) ==
          vk::Result::eSuccess);
 
-  m_PipelineLayout = std::make_unique<PipelineLayout>(m_device.get());
+  m_PipelineLayout = std::make_unique<PipelineLayout>();
 
   vk::PushConstantRange pushConstantRange{
 
@@ -81,22 +77,23 @@ Renderer2D::Renderer2D(
   m_PipelineLayout->addPushConstantRange(pushConstantRange);
 
   m_graphicsPipeline = std::make_unique<GraphicsPipeline>(
-      "shaders/frag.spv", "shaders/vert.spv", m_device.get(),
-      m_Renderpass->get(), m_PipelineLayout->get(),
+      "shaders/frag.spv", "shaders/vert.spv", m_Renderpass->get(),
+      m_PipelineLayout->get(),
       Vector2{(float)swapChainExtent.width, (float)swapChainExtent.height});
 
   vk::SemaphoreCreateInfo sephInfo{};
   vk::FenceCreateInfo fenceInfo{};
   fenceInfo.flags = vk::FenceCreateFlagBits::eSignaled;
 
-  vk::resultCheck(
-      m_device->createSemaphore(&sephInfo, nullptr, &m_ImageAvailable),
-      "failed to create imageSemaphore");
-  vk::resultCheck(
-      m_device->createSemaphore(&sephInfo, nullptr, &m_RenderFinished),
-      "Failed to create renderfinished semaphore");
+  vk::resultCheck(g_vkContext->device.createSemaphore(
+                      &sephInfo, nullptr, &g_vkContext->ImageAvailable),
+                  "failed to create imageSemaphore");
+  vk::resultCheck(g_vkContext->device.createSemaphore(
+                      &sephInfo, nullptr, &g_vkContext->RenderFinished),
+                  "Failed to create renderfinished semaphore");
 
-  vk::resultCheck(m_device->createFence(&fenceInfo, nullptr, &m_inFlightFence),
+  vk::resultCheck(g_vkContext->device.createFence(&fenceInfo, nullptr,
+                                                  &g_vkContext->inFlightFence),
                   "failed to create inFlight fence");
 
   camera = std::make_unique<Camera2D>(100, 100);
@@ -157,11 +154,11 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
 
 void Renderer2D::beginFrame() {
 
-  auto res = m_device->waitForFences(1, &m_inFlightFence, vk::Bool32(true),
-                                     UINT64_MAX);
+  auto res = g_vkContext->device.waitForFences(1, &g_vkContext->inFlightFence,
+                                               vk::Bool32(true), UINT64_MAX);
   vk::resultCheck(res, "waitForfences failed");
 
-  res = m_device->resetFences(1, &m_inFlightFence);
+  res = g_vkContext->device.resetFences(1, &g_vkContext->inFlightFence);
   vk::resultCheck(res, "resetFences failed");
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplSDL2_NewFrame();
@@ -172,11 +169,11 @@ void Renderer2D::drawFrame() {
 
   vk::AcquireNextImageInfoKHR info;
   info.swapchain = m_SwapChain->get();
-  info.semaphore = m_ImageAvailable;
+  info.semaphore = g_vkContext->ImageAvailable;
   info.timeout = UINT64_MAX;
 
-  auto imageIndex = m_device->acquireNextImageKHR(m_SwapChain->get(),
-                                                  UINT64_MAX, m_ImageAvailable);
+  auto imageIndex = g_vkContext->device.acquireNextImageKHR(
+      m_SwapChain->get(), UINT64_MAX, g_vkContext->ImageAvailable);
 
   vk::resultCheck(imageIndex.result, "");
 
@@ -185,7 +182,7 @@ void Renderer2D::drawFrame() {
 
   vk::SubmitInfo submitInfo{};
 
-  vk::Semaphore waitSemaphores[] = {m_ImageAvailable};
+  vk::Semaphore waitSemaphores[] = {g_vkContext->ImageAvailable};
 
   vk::PipelineStageFlags waitStages[] = {
       vk::PipelineStageFlagBits::eColorAttachmentOutput};
@@ -196,11 +193,12 @@ void Renderer2D::drawFrame() {
   submitInfo.commandBufferCount = 1;
   submitInfo.pCommandBuffers = &m_commandBuffer;
 
-  vk::Semaphore signalSephamores[] = {m_RenderFinished};
+  vk::Semaphore signalSephamores[] = {g_vkContext->RenderFinished};
   submitInfo.signalSemaphoreCount = 1;
   submitInfo.pSignalSemaphores = signalSephamores;
 
-  auto res = m_graphicsQueue.submit(1, &submitInfo, m_inFlightFence);
+  auto res = g_vkContext->graphicsQueue.submit(1, &submitInfo,
+                                               g_vkContext->inFlightFence);
   assert(res == vk::Result::eSuccess);
 
   vk::SubpassDependency dep{};
@@ -217,12 +215,12 @@ void Renderer2D::drawFrame() {
   vk::SwapchainKHR swapChains[] = {m_SwapChain->get()};
 
   presentInfo.waitSemaphoreCount = 1;
-  presentInfo.pWaitSemaphores = &m_RenderFinished;
+  presentInfo.pWaitSemaphores = &g_vkContext->RenderFinished;
   presentInfo.swapchainCount = 1;
   presentInfo.pSwapchains = swapChains;
   presentInfo.pImageIndices = &imageIndex.value;
   presentInfo.pResults = nullptr;
-  res = m_presentQueue.presentKHR(&presentInfo);
+  res = g_vkContext->presentQueue.presentKHR(&presentInfo);
   assert(res == vk::Result::eSuccess);
 }
 

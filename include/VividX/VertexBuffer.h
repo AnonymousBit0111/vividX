@@ -1,8 +1,10 @@
 #pragma once
 
+#include "VividX/Globals.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_handles.hpp"
+#include <_types/_uint32_t.h>
 #include <vector>
 namespace vividX {
 
@@ -11,16 +13,14 @@ class VertexBuffer {
 private:
   vk::Buffer m_rawBuffer;
   vk::DeviceMemory m_memory;
-  vk::Device *p_device;
   uint32_t m_size;
   void *m_data;
 
 public:
-  VertexBuffer(vk::Device *dev, uint32_t size,
-               vk::PhysicalDevice &PhysicalDevice);
+  VertexBuffer(uint32_t size);
   ~VertexBuffer() {
-    p_device->destroyBuffer(m_rawBuffer);
-    p_device->freeMemory(m_memory);
+    g_vkContext->device.destroyBuffer(m_rawBuffer);
+    g_vkContext->device.freeMemory(m_memory);
   }
   vk::Buffer getBuffer() { return m_rawBuffer; }
   vk::Buffer &getBufferRef() { return m_rawBuffer; }

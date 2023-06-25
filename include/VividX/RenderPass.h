@@ -1,5 +1,6 @@
 #pragma once
 
+#include "VividX/Globals.h"
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_core.h"
 #include "vulkan/vulkan_handles.hpp"
@@ -11,12 +12,12 @@ class RenderPass {
 
 private:
   vk::RenderPass m_renderPass;
-  vk::Device *p_device;
+
 
 public:
-  RenderPass(vk::Device *dev, vk::SurfaceFormatKHR format);
+  RenderPass(vk::SurfaceFormatKHR format);
   vk::RenderPass get() { return m_renderPass; }
-  ~RenderPass() { p_device->destroyRenderPass(m_renderPass); }
+  ~RenderPass() { g_vkContext->device.destroyRenderPass(m_renderPass); }
 };
 
 } // namespace vividX
