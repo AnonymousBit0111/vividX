@@ -26,18 +26,8 @@ private:
   std::vector<const char *> validationLayers;
   VkDebugUtilsMessengerEXT debugMessenger;
 
-  vk::CommandPool commandPool;
-  vk::CommandBuffer commandBuffer;
-  vk::RenderPassCreateInfo renderPassInfo{};
 
-  vk::PresentModeKHR presentMode;
-
-  std::map<std::string, std::optional<uint32_t>> queueFamilyIndices;
   std::vector<PosColourVertex> vertices;
-  vk::DeviceMemory vertexBufferMemory;
-  vk::RenderPass renderPass;
-
-  vk::DescriptorPool descPool;
 
   std::vector<vk::DescriptorPoolSize> poolSizes = {
       {vk::DescriptorType::eSampler, 1000},
@@ -61,12 +51,14 @@ private:
   };
   vk::DescriptorPool ImGuiDescriptorPool;
 
-  Camera2D cam;
   std::unique_ptr<Renderer2D> renderer;
 
   void initSDL();
   void initVulkan();
+
+  // TODO move this to the renderer
   void initImGui();
+
   void createSurface();
   void createInstance();
   void createDebugCallback();

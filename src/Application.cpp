@@ -46,10 +46,7 @@ const int HEIGHT = 600;
 using namespace vividX;
 
 std::shared_ptr<vividX::VKContext> vividX::g_vkContext = nullptr;
-Application::Application()
-
-    : cam(Vector2{1600, 900}) {}
-void Application::run() {
+Application::Application() {
 
   vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
               {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
@@ -57,6 +54,8 @@ void Application::run() {
 
   };
   g_vkContext = std::make_shared<VKContext>();
+}
+void Application::run() {
 
   initSDL();
   initVulkan();
@@ -88,8 +87,6 @@ void Application::initVulkan() {
 
   createLogicalDevice();
 
-  g_vkContext->queueFamilyIndices = queueFamilyIndices;
-
   renderer = std::make_unique<Renderer2D>(window);
 }
 
@@ -105,7 +102,7 @@ void Application::initImGui() {
   initInfo.MinImageCount = 2;
   initInfo.Queue = g_vkContext->graphicsQueue;
 
-  initInfo.QueueFamily = queueFamilyIndices["Graphics"].value();
+  initInfo.QueueFamily = g_vkContext->queueFamilyIndices["Graphics"].value();
   initInfo.Device = g_vkContext->device;
   initInfo.PhysicalDevice = g_vkContext->physicalDevice;
   initInfo.CheckVkResultFn = nullptr;
@@ -297,22 +294,23 @@ void Application::createLogicalDevice() {
   uint32_t i = 0;
   for (const auto &queueFamily : queueFamilies) {
     if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
-      queueFamilyIndices["Graphics"] = i;
+      g_vkContext->queueFamilyIndices["Graphics"] = i;
     }
     bool presentSupport;
     presentSupport = g_vkContext->physicalDevice.getSurfaceSupportKHR(
         i, g_vkContext->surface);
     if (presentSupport) {
-      queueFamilyIndices["Present"] = i;
+      g_vkContext->queueFamilyIndices["Present"] = i;
     }
     i++;
   }
 
-  assert(queueFamilyIndices.count("Graphics") > 0 &&
+  assert(g_vkContext->queueFamilyIndices.count("Graphics") > 0 &&
          "Failed to find required graphics queue.");
 
   vk::DeviceQueueCreateInfo queueCreateInfo{};
-  queueCreateInfo.queueFamilyIndex = queueFamilyIndices["Graphics"].value();
+  queueCreateInfo.queueFamilyIndex =
+      g_vkContext->queueFamilyIndices["Graphics"].value();
   queueCreateInfo.queueCount = 1;
   static float queuePriority = 1.0f;
   queueCreateInfo.pQueuePriorities = &queuePriority;
@@ -355,10 +353,10 @@ void Application::createLogicalDevice() {
   g_vkContext->device = g_vkContext->physicalDevice.createDevice(createInfo);
   log("succesfully created logical device", Severity::INFO);
 
-  g_vkContext->graphicsQueue =
-      g_vkContext->device.getQueue(queueFamilyIndices["Graphics"].value(), 0);
-  g_vkContext->presentQueue =
-      g_vkContext->device.getQueue(queueFamilyIndices["Present"].value(), 0);
+  g_vkContext->graphicsQueue = g_vkContext->device.getQueue(
+      g_vkContext->queueFamilyIndices["Graphics"].value(), 0);
+  g_vkContext->presentQueue = g_vkContext->device.getQueue(
+      g_vkContext->queueFamilyIndices["Present"].value(), 0);
 }
 
 void Application::drawFrame() {
