@@ -361,16 +361,6 @@ void Application::createLogicalDevice() {
       g_vkContext->device.getQueue(queueFamilyIndices["Present"].value(), 0);
 }
 
-void Application::createCommandBuffer() {
-  vk::CommandBufferAllocateInfo info{};
-  info.commandPool = commandPool;
-  info.level = vk::CommandBufferLevel::ePrimary;
-  info.commandBufferCount = 1;
-
-  assert(g_vkContext->device.allocateCommandBuffers(&info, &commandBuffer) ==
-         vk::Result::eSuccess);
-}
-
 void Application::drawFrame() {
 
   renderer->beginFrame();

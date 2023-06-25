@@ -72,17 +72,6 @@ private:
   void createDebugCallback();
   void pickPhysicalDevice();
   void createLogicalDevice();
-  vk::SurfaceFormatKHR chooseFormat();
-  vk::Extent2D chooseExtent();
-  void createGraphicsPipeline();
-
-  void createCommandPool();
-
-  void createVertexBuffer();
-  void createCommandBuffer();
-  void createSyncObjects();
-
-  void recordCommandBuffer(uint32_t imageIndex);
 
   void drawFrame();
 
