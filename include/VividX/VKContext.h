@@ -1,4 +1,5 @@
 #pragma once
+#include <SDL.h>
 #include <map>
 #include <memory>
 
@@ -18,15 +19,34 @@ struct VKContext {
   vk::Semaphore RenderFinished;
   std::map<std::string, std::optional<uint32_t>> queueFamilyIndices;
 
+  bool destroyed = false;
+
+  void destroy() {
+    if (!destroyed) {
+      device.destroySemaphore(RenderFinished);
+      device.destroySemaphore(ImageAvailable);
+      device.destroyFence(inFlightFence);
+      device.destroy();
+      instance.destroySurfaceKHR(surface);
+      instance.destroy();
+
+      destroyed = true;
+    }
+  }
+
   // Destructor
   ~VKContext() {
     // Cleanup code for the Vulkan resources
-    device.destroySemaphore(ImageAvailable);
-    device.destroySemaphore(RenderFinished);
-    device.destroyFence(inFlightFence);
-    device.destroy();
-    instance.destroySurfaceKHR(surface);
-    instance.destroy();
+    if (!destroyed) {
+      device.destroySemaphore(RenderFinished);
+      device.destroySemaphore(ImageAvailable);
+      device.destroyFence(inFlightFence);
+      device.destroy();
+      instance.destroySurfaceKHR(surface);
+      instance.destroy();
+
+      destroyed = true;
+    }
   }
 };
 

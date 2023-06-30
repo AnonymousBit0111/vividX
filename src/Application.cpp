@@ -1,9 +1,12 @@
 #include "VividX/Application.h"
+#include "SDL2/SDL_keycode.h"
 #include "SDL2/SDL_stdinc.h"
 #include "SDL2/SDL_video.h"
+#include "VividX/Camera2D.h"
 #include "VividX/Globals.h"
 #include "VividX/GraphicsPipeline.h"
 #include "VividX/PipelineLayout.h"
+#include "VividX/Quad.h"
 #include "VividX/RenderPass.h"
 #include "VividX/Renderer2D.h"
 #include "VividX/SwapChain.h"
@@ -46,7 +49,7 @@ const int HEIGHT = 600;
 using namespace vividX;
 
 std::shared_ptr<vividX::VKContext> vividX::g_vkContext = nullptr;
-Application::Application() {
+Application::Application() : camera(800, 600, 0, 0) {
 
   vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
               {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
@@ -60,7 +63,7 @@ void Application::run() {
   initSDL();
   initVulkan();
 
-  initImGui();
+  // initImGui();
   mainLoop();
   cleanup();
 }
@@ -259,12 +262,26 @@ void Application::mainLoop() {
       if (event.type == SDL_QUIT) {
         break;
       }
+
+      else if (event.key.keysym.sym == SDLK_w) {
+        camera.move({0, -1});
+
+      } else if (event.key.keysym.sym == SDLK_a) {
+        camera.move({-1, 0});
+
+      } else if (event.key.keysym.sym == SDLK_s) {
+        camera.move({0, 1});
+
+      } else if (event.key.keysym.sym == SDLK_d) {
+        camera.move({1, 0});
+      }
       ImGui_ImplSDL2_ProcessEvent(&event);
     }
     drawFrame();
 
     SDL_UpdateWindowSurface(window);
   }
+  g_vkContext->graphicsQueue.waitIdle();
   g_vkContext->device.waitIdle();
 }
 
@@ -361,7 +378,12 @@ void Application::createLogicalDevice() {
 
 void Application::drawFrame() {
 
-  renderer->beginFrame();
+  renderer->beginFrame(camera);
+Quad q(glm::vec2(600, 600), glm::vec2(100, 100));
+Quad i(glm::vec2(400, 400), glm::vec2(100, 100));
+
+  renderer->addQuad(q);
+  renderer->addQuad(i);
 
   renderer->drawFrame();
 
@@ -372,5 +394,6 @@ void Application::cleanup() {
   ImGui_ImplVulkan_Shutdown();
 
   SDL_DestroyWindow(window);
+
   SDL_Quit();
 }

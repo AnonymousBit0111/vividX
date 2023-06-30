@@ -1,25 +1,111 @@
 #include "VividX/Renderer2D.h"
+#include "VividX/Camera2D.h"
 #include "VividX/Globals.h"
+#include "VividX/IndexBuffer.h"
+#include "VividX/Quad.h"
 #include "VividX/VKContext.h"
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
+#include "vulkan/vulkan_core.h"
 #include "vulkan/vulkan_enums.hpp"
 #include "vulkan/vulkan_handles.hpp"
 #include "vulkan/vulkan_structs.hpp"
 #include <SDL_video.h>
+#include <_types/_uint32_t.h>
 #include <cassert>
+#include <iterator>
 #include <memory>
 #include <utility>
+#include <vector>
 
 using namespace vividX;
 
-Renderer2D::Renderer2D(SDL_Window *window)
+void Renderer2D::initImGui() {
+  ImGui::CreateContext();
 
-{
+  std::vector<vk::DescriptorPoolSize> poolSizes = {
+      {vk::DescriptorType::eSampler, 1000},
+      {vk::DescriptorType::eCombinedImageSampler, 1000},
+      {vk::DescriptorType::eSampledImage, 1000},
+      {vk::DescriptorType::eStorageImage, 1000},
+      {vk::DescriptorType::eUniformTexelBuffer, 1000},
+      {vk::DescriptorType::eStorageTexelBuffer, 1000},
+      {vk::DescriptorType::eUniformBuffer, 1000},
+      {vk::DescriptorType::eStorageBuffer, 1000},
+      {vk::DescriptorType::eUniformBufferDynamic, 1000},
+      {vk::DescriptorType::eStorageBufferDynamic, 1000},
+      {vk::DescriptorType::eInputAttachment, 1000}};
+
+  // Create the descriptor pool
+  vk::DescriptorPoolCreateInfo poolInfo = {
+      {},                                      // Flags
+      1000,                                    // Max sets
+      static_cast<uint32_t>(poolSizes.size()), // Pool size count
+      poolSizes.data()                         // Pool sizes
+  };
+  ImGuiDescriptorPool = g_vkContext->device.createDescriptorPool(poolInfo);
+
+  ImGui_ImplVulkan_InitInfo initInfo{};
+  initInfo.Allocator = nullptr;
+  initInfo.Instance = g_vkContext->instance;
+  initInfo.ImageCount = m_SwapChain->getImageCount();
+  initInfo.MinImageCount = 2;
+  initInfo.Queue = g_vkContext->graphicsQueue;
+
+  initInfo.QueueFamily = g_vkContext->queueFamilyIndices["Graphics"].value();
+  initInfo.Device = g_vkContext->device;
+  initInfo.PhysicalDevice = g_vkContext->physicalDevice;
+  initInfo.CheckVkResultFn = nullptr;
+  initInfo.DescriptorPool = ImGuiDescriptorPool;
+  initInfo.PipelineCache = {};
+
+  ImGui_ImplSDL2_InitForVulkan(p_window);
+  ImGui_ImplVulkan_Init(&initInfo, m_Renderpass->get());
+
+  vk::CommandBufferAllocateInfo allocateInfo = {
+      m_commandpool,                    // Command pool
+      vk::CommandBufferLevel::ePrimary, // Command buffer level
+      1                                 // Number of command buffers to allocate
+  };
+  vk::CommandBuffer tempBuffer;
+
+  vk::resultCheck(
+      g_vkContext->device.allocateCommandBuffers(&allocateInfo, &tempBuffer),
+      "");
+
+  vk::CommandBufferBeginInfo beginInfo = {
+      vk::CommandBufferUsageFlagBits::eOneTimeSubmit, // Flags
+      nullptr // Pointer to a VkCommandBufferInheritanceInfo struct
+  };
+
+  ImGui::StyleColorsDark();
+  tempBuffer.begin(beginInfo);
+
+  ImGui_ImplVulkan_CreateFontsTexture(tempBuffer);
+
+  tempBuffer.end();
+
+  vk::SubmitInfo submitInfo = {
+      {}, // Wait semaphores
+      {}, // Wait stages
+      {}, // Command buffers
+      {}, // Signal semaphores
+  };
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &tempBuffer;
+
+  g_vkContext->graphicsQueue.submit(submitInfo);
+  g_vkContext->graphicsQueue.waitIdle();
+
+  ImGui_ImplVulkan_DestroyFontUploadObjects();
+}
+
+Renderer2D::Renderer2D(SDL_Window *window) : p_window(window) {
 
   vk::SurfaceFormatKHR swapchainSurfaceFormat =
       vividX::chooseFormat(g_vkContext->physicalDevice, g_vkContext->surface,
@@ -39,14 +125,9 @@ Renderer2D::Renderer2D(SDL_Window *window)
 
   m_SwapChain->createFrameBuffers(m_Renderpass.get());
 
-  vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
-              {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
-              {{0.f, 100.5f}, {0.0f, 0.0f, 1.0f}}};
-
-  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(sizeof(vertices[0]) *
-                                                          vertices.size());
-
-  m_vertexBuffer->update(vertices);
+  m_vertexBuffer =
+      std::make_unique<vividX::VertexBuffer>(sizeof(vertices[0]) * MaxVerts);
+  m_indexBuffer = std::make_unique<IndexBuffer>(MaxIndexCount);
 
   vk::CommandPoolCreateInfo poolInfo{};
   poolInfo.flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
@@ -97,9 +178,14 @@ Renderer2D::Renderer2D(SDL_Window *window)
                   "failed to create inFlight fence");
 
   camera = std::make_unique<Camera2D>(100, 100);
+
+  vertexCount = vertices.size();
+
+  initImGui();
 }
 
 void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
+
   vk::CommandBufferBeginInfo beginInfo{};
   vk::ClearValue clearValue{};
 
@@ -117,6 +203,9 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
 
   renderPassBeginInfo.clearValueCount = 1;
   renderPassBeginInfo.pClearValues = &clearValue;
+
+  m_vertexBuffer->update(vertices);
+  m_indexBuffer->update(indices);
 
   m_commandBuffer.beginRenderPass(&renderPassBeginInfo,
                                   vk::SubpassContents::eInline);
@@ -136,8 +225,11 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
 
   m_commandBuffer.bindVertexBuffers(0, 1, &m_vertexBuffer->getBufferRef(),
                                     &offsets);
+  m_commandBuffer.bindIndexBuffer(m_indexBuffer->get(), 0,
+                                  vk::IndexType::eUint32);
+  m_commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
 
-  m_commandBuffer.draw(vertices.size(), 1, 0, 0);
+  // m_commandBuffer.draw(vertices.size(), 1, 0, 0);
   ImGui::ShowDebugLogWindow();
   ImGui::Render();
   auto draw_data = ImGui::GetDrawData();
@@ -152,7 +244,7 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
   m_commandBuffer.end();
 }
 
-void Renderer2D::beginFrame() {
+void Renderer2D::beginFrame(Camera2D &cam) {
 
   auto res = g_vkContext->device.waitForFences(1, &g_vkContext->inFlightFence,
                                                vk::Bool32(true), UINT64_MAX);
@@ -163,14 +255,23 @@ void Renderer2D::beginFrame() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplSDL2_NewFrame();
   ImGui::NewFrame();
+
+  *camera = cam;
 }
 
-void Renderer2D::drawFrame() {
+void Renderer2D::addQuad(Quad &q) {
+     for (auto &i : Quad::indices) {
+    indices.push_back(i + vertexCount);
+  }
 
-  vk::AcquireNextImageInfoKHR info;
-  info.swapchain = m_SwapChain->get();
-  info.semaphore = g_vkContext->ImageAvailable;
-  info.timeout = UINT64_MAX;
+  for (auto &i : q.vertices) {
+    vertices.push_back(i);
+    vertexCount++;
+  }
+
+ 
+}
+void Renderer2D::drawFrame() {
 
   auto imageIndex = g_vkContext->device.acquireNextImageKHR(
       m_SwapChain->get(), UINT64_MAX, g_vkContext->ImageAvailable);
@@ -224,4 +325,8 @@ void Renderer2D::drawFrame() {
   assert(res == vk::Result::eSuccess);
 }
 
-void Renderer2D::endFrame() {}
+void Renderer2D::endFrame() {
+  vertexCount = 0;
+  vertices.clear();
+  indices.clear();
+}
