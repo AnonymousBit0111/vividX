@@ -5,9 +5,11 @@
 #include "vulkan/vulkan_handles.hpp"
 #include "vulkan/vulkan_structs.hpp"
 #include <memory>
+#include "vividx.h"
 using namespace vividX;
 RenderPass::RenderPass(vk::SurfaceFormatKHR format) {
-
+  TracyFunction;
+  ZoneScoped;
   vk::RenderPassCreateInfo Info{};
   vk::AttachmentDescription colourAttachment{};
   colourAttachment.format = format.format;

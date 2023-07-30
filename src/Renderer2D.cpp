@@ -1,14 +1,19 @@
 #include "VividX/Renderer2D.h"
+#include "VividX/Batch.h"
 #include "VividX/Camera2D.h"
 #include "VividX/Globals.h"
 #include "VividX/IndexBuffer.h"
 #include "VividX/Quad.h"
+#include "VividX/UniformBuffer.h"
 #include "VividX/VKContext.h"
+#include "VividX/VertexBuffer.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "glm/fwd.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
+#include "tracy/TracyC.h"
 #include "vividx.h"
 #include "vulkan/vulkan.hpp"
 #include "vulkan/vulkan_core.h"
@@ -26,6 +31,9 @@
 using namespace vividX;
 
 void Renderer2D::initImGui() {
+
+  TracyFunction;
+  ZoneScoped;
   ImGui::CreateContext();
 
   std::vector<vk::DescriptorPoolSize> poolSizes = {
@@ -49,6 +57,30 @@ void Renderer2D::initImGui() {
       poolSizes.data()                         // Pool sizes
   };
   ImGuiDescriptorPool = g_vkContext->device.createDescriptorPool(poolInfo);
+
+  vk::DescriptorSetAllocateInfo allocInfo;
+
+  allocInfo.descriptorPool = ImGuiDescriptorPool;
+  allocInfo.descriptorSetCount = 1;
+  allocInfo.pSetLayouts = m_PipelineLayout->getLayouts();
+
+  assert(g_vkContext->device.allocateDescriptorSets(&allocInfo, &m_descSet) ==
+         vk::Result::eSuccess);
+
+  vk::DescriptorBufferInfo bufferInfo{};
+  bufferInfo.buffer = m_uniformBuffer->getBuffer();
+  bufferInfo.offset = 0;
+  bufferInfo.range = sizeof(glm::mat4) * MaxQuads;
+
+  vk::WriteDescriptorSet descWrite{};
+  descWrite.dstSet = m_descSet;
+  descWrite.dstBinding = 0;
+  descWrite.dstArrayElement = 0;
+  descWrite.descriptorType = vk::DescriptorType::eUniformBuffer;
+  descWrite.descriptorCount = 1;
+  descWrite.pBufferInfo = &bufferInfo;
+
+  g_vkContext->device.updateDescriptorSets(1, &descWrite, 0, nullptr);
 
   ImGui_ImplVulkan_InitInfo initInfo{};
   initInfo.Allocator = nullptr;
@@ -104,8 +136,11 @@ void Renderer2D::initImGui() {
 
   ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
+static Quad q(glm::vec2(1 * 100, 1 * 100), glm::vec2(100, 100));
 
 Renderer2D::Renderer2D(SDL_Window *window) : p_window(window) {
+  TracyFunction;
+  ZoneScoped;
 
   vk::SurfaceFormatKHR swapchainSurfaceFormat =
       vividX::chooseFormat(g_vkContext->physicalDevice, g_vkContext->surface,
@@ -125,8 +160,8 @@ Renderer2D::Renderer2D(SDL_Window *window) : p_window(window) {
 
   m_SwapChain->createFrameBuffers(m_Renderpass.get());
 
-  m_vertexBuffer =
-      std::make_unique<vividX::VertexBuffer>(sizeof(vertices[0]) * MaxVerts);
+  m_vertexBuffer = std::make_unique<vividX::VertexBuffer>(
+      sizeof(Quadbatch.vertices[0]) * MaxVerts);
   m_indexBuffer = std::make_unique<IndexBuffer>(MaxIndexCount);
 
   vk::CommandPoolCreateInfo poolInfo{};
@@ -146,6 +181,14 @@ Renderer2D::Renderer2D(SDL_Window *window) : p_window(window) {
          vk::Result::eSuccess);
 
   m_PipelineLayout = std::make_unique<PipelineLayout>();
+  auto binding = UniformBuffer::getDefaultBinding();
+
+  vk::DescriptorSetLayoutCreateInfo layoutCreateInfo{};
+  layoutCreateInfo.bindingCount = 1;
+  layoutCreateInfo.pBindings = &binding;
+
+  m_PipelineLayout->addDescriptorSetLayout(
+      g_vkContext->device.createDescriptorSetLayout(layoutCreateInfo));
 
   vk::PushConstantRange pushConstantRange{
 
@@ -179,12 +222,25 @@ Renderer2D::Renderer2D(SDL_Window *window) : p_window(window) {
 
   camera = std::make_unique<Camera2D>(100, 100);
 
-  vertexCount = vertices.size();
+  m_uniformBuffer =
+      std::make_unique<UniformBuffer>(sizeof(glm::mat4) * MaxQuads);
+
+  m_vertexBuffer->update(q.vertices);
+
+  UBO.models = new glm::mat4[MaxQuads];
+  std::vector<uint32_t> indices;
+  for (auto &i : Quad::indices) {
+    indices.push_back(i);
+  }
+
+  m_indexBuffer->update(indices);
 
   initImGui();
 }
 
 void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
+  TracyFunction;
+  ZoneScoped;
 
   vk::CommandBufferBeginInfo beginInfo{};
   vk::ClearValue clearValue{};
@@ -204,16 +260,12 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
   renderPassBeginInfo.clearValueCount = 1;
   renderPassBeginInfo.pClearValues = &clearValue;
 
-  m_vertexBuffer->update(vertices);
-  m_indexBuffer->update(indices);
-
   m_commandBuffer.beginRenderPass(&renderPassBeginInfo,
                                   vk::SubpassContents::eInline);
 
   m_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics,
                                m_graphicsPipeline->get());
 
-  // TODO pushConstants
   MeshPushConstants pushconstants;
   pushconstants.data = glm::vec4(1.0f);
   pushconstants.render_matrix = camera->getViewProjMatrix();
@@ -227,9 +279,12 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
                                     &offsets);
   m_commandBuffer.bindIndexBuffer(m_indexBuffer->get(), 0,
                                   vk::IndexType::eUint32);
-  m_commandBuffer.drawIndexed(indices.size(), 1, 0, 0, 0);
 
-  // m_commandBuffer.draw(vertices.size(), 1, 0, 0);
+  m_commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics,
+                                     m_PipelineLayout->get(), 0, 1, &m_descSet,
+                                     0, nullptr);
+  m_commandBuffer.drawIndexed(6, instanceCount, 0, 0, 0);
+
   ImGui::ShowDebugLogWindow();
   ImGui::Render();
   auto draw_data = ImGui::GetDrawData();
@@ -244,7 +299,19 @@ void Renderer2D::recordCommandBuffer(uint32_t imageIndex) {
   m_commandBuffer.end();
 }
 
+void Renderer2D::uploadInstances() {
+  m_uniformBuffer->update(UBO, instanceCount);
+}
+
+void Renderer2D::addQuad(glm::mat4 &model) {
+
+  UBO.models[instanceCount] = model;
+  instanceCount++;
+}
+
 void Renderer2D::beginFrame(Camera2D &cam) {
+  TracyFunction;
+  ZoneScoped;
 
   auto res = g_vkContext->device.waitForFences(1, &g_vkContext->inFlightFence,
                                                vk::Bool32(true), UINT64_MAX);
@@ -257,21 +324,12 @@ void Renderer2D::beginFrame(Camera2D &cam) {
   ImGui::NewFrame();
 
   *camera = cam;
+  Quadbatch.vertexCount = 0;
 }
 
-void Renderer2D::addQuad(Quad &q) {
-     for (auto &i : Quad::indices) {
-    indices.push_back(i + vertexCount);
-  }
-
-  for (auto &i : q.vertices) {
-    vertices.push_back(i);
-    vertexCount++;
-  }
-
- 
-}
 void Renderer2D::drawFrame() {
+  TracyFunction;
+  ZoneScoped;
 
   auto imageIndex = g_vkContext->device.acquireNextImageKHR(
       m_SwapChain->get(), UINT64_MAX, g_vkContext->ImageAvailable);
@@ -326,7 +384,6 @@ void Renderer2D::drawFrame() {
 }
 
 void Renderer2D::endFrame() {
-  vertexCount = 0;
-  vertices.clear();
-  indices.clear();
+  TracyFunction;
+  ZoneScoped;
 }

@@ -14,6 +14,7 @@
 #include "VividX/VertexBuffer.h"
 #include "VkBootstrap.h"
 #include "glm/ext/matrix_clip_space.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -43,6 +44,8 @@
 #include <vulkan/vulkan_macos.h>
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "tracy/Tracy.hpp"
 const int WIDTH = 800;
 const int HEIGHT = 600;
 
@@ -50,25 +53,25 @@ using namespace vividX;
 
 std::shared_ptr<vividX::VKContext> vividX::g_vkContext = nullptr;
 Application::Application() : camera(800, 600, 0, 0) {
+  TracyFunction;
+  ZoneScoped;
 
-  vertices = {{{50.0f, 0.f}, {1.0f, 0.0f, 0.0f}},
-              {{100.0f, 100.0f}, {0.0f, 1.0f, 0.0f}},
-              {{0.f, 100.5f}, {0.0f, 0.0f, 1.0f}}
-
-  };
   g_vkContext = std::make_shared<VKContext>();
 }
 void Application::run() {
+  TracyFunction;
+  ZoneScoped;
 
   initSDL();
   initVulkan();
 
-  // initImGui();
   mainLoop();
   cleanup();
 }
 
 void Application::initSDL() {
+  TracyFunction;
+  ZoneScoped;
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     assert(false && "Failed to initialize SDL.");
   }
@@ -83,6 +86,8 @@ void Application::initSDL() {
 }
 
 void Application::initVulkan() {
+  TracyFunction;
+  ZoneScoped;
   createInstance();
 
   createSurface();
@@ -91,9 +96,21 @@ void Application::initVulkan() {
   createLogicalDevice();
 
   renderer = std::make_unique<Renderer2D>(window);
+
+  renderer->resetInstances();
+  for (int i = 0; i < 10000; i++) {
+    for (int r = 0; r < 440; r++) {
+      auto a = glm::translate(glm::mat4(1), glm::vec3(i * 100, r * 100, 0));
+
+      renderer->addQuad(a);
+    }
+  }
+  renderer->uploadInstances();
 }
 
 void Application::initImGui() {
+  TracyFunction;
+  ZoneScoped;
 
   ImGui::CreateContext();
   ImGuiDescriptorPool = g_vkContext->device.createDescriptorPool(poolInfo);
@@ -154,6 +171,8 @@ void Application::initImGui() {
 }
 
 void Application::createInstance() {
+  TracyFunction;
+  ZoneScoped;
   vk::ApplicationInfo appInfo{};
   appInfo.pApplicationName = "Vulkan SDL2 Demo";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -248,6 +267,8 @@ void Application::createDebugCallback() {
 }
 
 void Application::createSurface() {
+  TracyFunction;
+  ZoneScoped;
   VkSurfaceKHR Csurf;
   if (!SDL_Vulkan_CreateSurface(window, g_vkContext->instance, &Csurf)) {
     assert(false && "Failed to create Vulkan surface.");
@@ -256,36 +277,42 @@ void Application::createSurface() {
 }
 
 void Application::mainLoop() {
+  TracyFunction;
+  ZoneScoped;
   SDL_Event event;
   while (true) {
+
+    if (ImGui::IsKeyDown(ImGuiKey_UpArrow)) {
+      camera.move({0, -50});
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_LeftArrow)) {
+      camera.move({-50, 0});
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_DownArrow)) {
+      camera.move({0, 50});
+    }
+    if (ImGui::IsKeyDown(ImGuiKey_RightArrow)) {
+      camera.move({50, 0});
+    }
     if (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
         break;
       }
 
-      else if (event.key.keysym.sym == SDLK_w) {
-        camera.move({0, -1});
-
-      } else if (event.key.keysym.sym == SDLK_a) {
-        camera.move({-1, 0});
-
-      } else if (event.key.keysym.sym == SDLK_s) {
-        camera.move({0, 1});
-
-      } else if (event.key.keysym.sym == SDLK_d) {
-        camera.move({1, 0});
-      }
       ImGui_ImplSDL2_ProcessEvent(&event);
     }
     drawFrame();
 
     SDL_UpdateWindowSurface(window);
+    FrameMark;
   }
   g_vkContext->graphicsQueue.waitIdle();
   g_vkContext->device.waitIdle();
 }
 
 void Application::pickPhysicalDevice() {
+  TracyFunction;
+  ZoneScoped;
 
   std::vector<vk::PhysicalDevice> devices =
       g_vkContext->instance.enumeratePhysicalDevices();
@@ -305,6 +332,8 @@ void Application::pickPhysicalDevice() {
 }
 
 void Application::createLogicalDevice() {
+  TracyFunction;
+  ZoneScoped;
   std::vector<vk::QueueFamilyProperties> queueFamilies =
       g_vkContext->physicalDevice.getQueueFamilyProperties();
 
@@ -377,19 +406,20 @@ void Application::createLogicalDevice() {
 }
 
 void Application::drawFrame() {
+  TracyFunction;
+  ZoneScoped;
 
   renderer->beginFrame(camera);
-Quad q(glm::vec2(600, 600), glm::vec2(100, 100));
-Quad i(glm::vec2(400, 400), glm::vec2(100, 100));
-
-  renderer->addQuad(q);
-  renderer->addQuad(i);
-
-  renderer->drawFrame();
 
   renderer->endFrame();
+
+  ImGui::ShowMetricsWindow();
+
+  renderer->drawFrame();
 }
 void Application::cleanup() {
+  TracyFunction;
+  ZoneScoped;
 
   ImGui_ImplVulkan_Shutdown();
 

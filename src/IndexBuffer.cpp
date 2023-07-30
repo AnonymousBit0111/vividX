@@ -8,6 +8,8 @@
 using namespace vividX;
 
 IndexBuffer::IndexBuffer(uint32_t size) : m_size(size) {
+  TracyFunction;
+  ZoneScoped;
 
   vk::BufferCreateInfo bufferInfo{};
   bufferInfo.size = size * sizeof(uint32_t);
@@ -37,11 +39,15 @@ IndexBuffer::IndexBuffer(uint32_t size) : m_size(size) {
 }
 
 void IndexBuffer::update(const std::vector<uint32_t> indices) {
+  TracyFunction;
+  ZoneScoped;
   assert(indices.size() <= m_size);
   memcpy(m_data, indices.data(), indices.size() * sizeof(indices[0]));
 }
 
 IndexBuffer::~IndexBuffer() {
+  TracyFunction;
+  ZoneScoped;
   g_vkContext->device.destroyBuffer(m_rawBuffer);
   g_vkContext->device.freeMemory(m_memory);
 }

@@ -23,10 +23,14 @@
 #define VK_FORMAT_FLOAT VK_FORMAT_R32_SFLOAT
 #define VK_FORMAT_S VK_FORMAT_R32_SFLOAT
 #define VK_FORMAT_X VK_FORMAT_R32_SFLOAT
+
+#define TRACY_ENABLE
+
+#include "tracy/Tracy.hpp"
 namespace vividX {
 
 struct MeshPushConstants {
-  glm::vec4 data = {1,1,1,1};
+  glm::vec4 data = {1, 1, 1, 1};
   glm::mat4 render_matrix;
 };
 struct Vector3 {

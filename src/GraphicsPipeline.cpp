@@ -12,6 +12,8 @@ GraphicsPipeline::GraphicsPipeline(const std::string &fsPath,
                                    const std::string &vsPath, vk::RenderPass rp,
                                    vk::PipelineLayout layout,
                                    Vector2 viewportSize) {
+  TracyFunction;
+  ZoneScoped;
 
   auto vertShaderCode = readFile(vsPath);
   auto fragShaderCode = readFile(fsPath);
@@ -141,5 +143,7 @@ GraphicsPipeline::GraphicsPipeline(const std::string &fsPath,
 }
 
 GraphicsPipeline::~GraphicsPipeline() {
+  TracyFunction;
+  ZoneScoped;
   g_vkContext->device.destroyPipeline(m_graphicsPipeline);
 }

@@ -4,3 +4,4 @@ lib/imgui
 lib/imgui/backends
 ~/VulkanSDK/1.3.243.0/macOS/include
 lib/glm/glm
+lib/tracy/public

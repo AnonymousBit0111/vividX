@@ -6,6 +6,8 @@
 using namespace vividX;
 
 VertexBuffer::VertexBuffer(uint32_t size) : m_size(size) {
+      TracyFunction;
+  ZoneScoped;
 
   vk::BufferCreateInfo bufferInfo{};
   bufferInfo.size = size;
@@ -35,6 +37,8 @@ VertexBuffer::VertexBuffer(uint32_t size) : m_size(size) {
 }
 
 void VertexBuffer::update(const std::vector<PosColourVertex> &vertices) {
+  TracyFunction;
+  ZoneScoped;
   assert(vertices.size() * sizeof(vertices[0]) <= m_size);
   memcpy(m_data, vertices.data(), vertices.size() * sizeof(vertices[0]));
 }

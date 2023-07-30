@@ -20,6 +20,10 @@ public:
   addDescriptorSetLayout(const vk::DescriptorSetLayout &descriptorSetLayout);
   void addPushConstantRange(const vk::PushConstantRange &pushConstantRange);
 
+  vk::DescriptorSetLayout *getLayouts() {
+    return m_descriptorSetLayouts.data();
+  }
+
   vk::PipelineLayout get() const { return m_pipelineLayout; }
 };
 } // namespace vividX

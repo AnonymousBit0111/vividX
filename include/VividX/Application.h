@@ -31,6 +31,8 @@ private:
 
   Camera2D camera;
 
+  std::vector<Quad> quads;
+
   std::vector<vk::DescriptorPoolSize> poolSizes = {
       {vk::DescriptorType::eSampler, 1000},
       {vk::DescriptorType::eCombinedImageSampler, 1000},

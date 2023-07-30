@@ -11,9 +11,11 @@ namespace vividX {
 struct Quad {
 
   std::vector<PosColourVertex> vertices;
+
+  glm::mat4 model;
   static std::array<uint32_t, 6> indices;
 
-  Quad(glm::vec2 position,glm::vec2 size);
-  ~Quad(){}
+  Quad(glm::vec2 position, glm::vec2 size);
+  ~Quad() {}
 };
 }; // namespace vividX

@@ -14,6 +14,8 @@
 #include <vulkan/vulkan.h>
 
 int main() {
+  TracyFunction;
+  ZoneScoped;
   vividX::Application app;
 
   app.run();

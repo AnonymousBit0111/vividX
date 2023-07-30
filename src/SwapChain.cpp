@@ -11,6 +11,8 @@ using namespace vividX;
 SwapChain::SwapChain(Vector2ui size, vk::PresentModeKHR presentmode,
                      vk::SwapchainKHR oldSwapchain)
     : m_imageSize(size) {
+  TracyFunction;
+  ZoneScoped;
   vk::SwapchainCreateInfoKHR createInfo{};
 
   auto format =
